@@ -1,0 +1,1 @@
+{"selected_features": ["rolling_3_month_sales", "cogs", "margin_percentage", "roi", "90_days_supply", "12_month_turnover", "90_day_turnover", "demand"], "best_hyperparameters": {"n_estimators": 100, "min_samples_split": 5, "min_samples_leaf": 5, "max_features": "log2", "max_depth": 9, "bootstrap": true}}

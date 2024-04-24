@@ -1,0 +1,41 @@
+{
+
+"StaticColumns":[
+    "part_number",
+    "description",
+    "supplier_name",
+    "quantity",
+    "price",
+    "margin",
+    "months_no_sale",
+    "last_sold_date",
+    "quantity_ordered_ytd",
+    "last_received_date",
+    "special_orders_ytd"
+],
+"SpecificMonths": [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December"
+],
+"DecomposePeriod":3, 
+"SalesThisYear": [
+    "sales_jan", "sales_feb", "sales_mar", "sales_apr",
+    "sales_may", "sales_jun", "sales_jul", "sales_aug",
+    "sales_sep", "sales_oct", "sales_nov", "sales_dec"
+],
+"SalesLastYear": [
+    "sales_last_jan", "sales_last_feb", "sales_last_mar", "sales_last_apr",
+    "sales_last_may", "sales_last_jun", "sales_last_jul", "sales_last_aug",
+    "sales_last_sep", "sales_last_oct", "sales_last_nov", "sales_last_dec"
+]
+}

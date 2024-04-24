@@ -1,0 +1,28 @@
+{
+    "selected_features": [
+        "months_no_sale",
+        "quantity_ordered_ytd",
+        "special_orders_ytd",
+        "rolling_3_month_sales",
+        "total_cost",
+        "gross_profit",
+        "roi",
+        "12_month_turnover",
+        "90_day_turnover",
+        "sales_to_stock_ratio",
+        "seasonal_component"
+    ],
+    "best_hyperparameters": {
+        "colsample_bytree": 0.9430160621958156,
+        "gamma": 0.251458151532178,
+        "huber_slope": 0.2996062529763452,
+        "learning_rate": 0.0482758394719898,
+        "max_delta_step": 10,
+        "max_depth": 14,
+        "min_child_weight": 3,
+        "n_estimators": 540,
+        "reg_alpha": 0.0005124235609653388,
+        "reg_lambda": 1.161024480261372,
+        "subsample": 0.891338742975388
+    }
+}

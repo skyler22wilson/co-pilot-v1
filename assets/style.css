@@ -1,0 +1,630 @@
+/* custom_styles.css */
+@import url('https://fonts.googleapis.com/css?family=Cabin:400,700');
+
+/* Define CSS Variables */
+:root {
+    --primary-color: #252550;
+    --text-color: #252550;
+    --background-color: #FFFFFF;
+    --accent-color: #8cebf0;
+    --border-radius: 4px;
+    --box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    --hover-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    --font-family: 'Cabin', sans-serif;
+    --padding-standard: 15px;
+    --transition-speed: 0.3s;
+}
+
+/* Global Styles */
+html, body, #root {
+    height: 100vh;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+    font-family: var(--font-family);
+    color: var(--text-color);
+    background-color: var(--background-color);
+}
+
+/* Card Styles */
+.dashboard-card {
+    background-color: var(--background-color);
+    border: 1px solid rgba(211, 211, 211, 0.5);
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    padding: var(--padding-standard);
+    border-radius: var(--border-radius);
+}
+
+#partswise-card {
+    min-height: 400px;
+}
+
+.textarea-loading-wrapper {
+    position: relative; /* This needs to be relative to position the loading overlay correctly */
+    flex-grow: 1;
+    width: 100%;
+    flex-direction: column;
+    justify-content: flex-start; 
+    display: flex;
+}
+
+/* Style for the loading overlay */
+.loading-overlay {
+    position: absolute;
+    display: flex;
+    justify-content: center; 
+    align-items: center; 
+    transform: translateY(-145px); 
+    z-index: 10;
+    width: 100%; /* Ensure it covers the full width of the parent */
+}
+
+
+.card-title {
+    font-size: 1.25rem;
+    color: var(--primary-color);
+    font-weight: 600;
+    margin-bottom: 0.5rem; /* Space between title and content */
+}
+
+.card-text {
+    font-size: 1.05rem;
+    margin-bottom: 0.75rem; /* Space between text and any following content */
+}
+
+.info-value {
+    display: block; /* Ensure it takes up the full width */
+    font-size: 1.15rem;
+    font-weight: bold;
+    margin-top: 0.25rem; /* Space above the value */
+}
+
+/* Dashboard Layout */
+#dashboard-layout {
+    padding: var(--padding-standard);
+}
+
+/* Graph Container */
+.graph-container {
+    padding: var(--padding-standard);
+    border: 1px solid rgba(211, 211, 211, 0.5);
+    border-radius: var(--border-radius);
+}
+
+/* Navigation and Info Containers */
+#navigation-card, .info-container {
+    text-align: center;
+    margin-top: var(--padding-standard);
+}
+
+/* Utilize the button group for a consistent layout of buttons */
+.button-group {
+    display: flex;
+    justify-content: space-around;
+    gap: var(--padding-standard);
+}
+
+/* PartsWise Card Styling */
+#partswise-input {
+    margin-top: 25px;
+    max-height: 50px;
+    resize: none;
+    width: 75%;
+    padding: 0.75rem;
+    border: 1px solid #ced4da;
+    border-radius: 0.5rem;
+    margin-bottom: 1.25rem;
+    overflow-y: auto;
+    transform: translateX(15%);
+
+}
+
+.textarea-container {
+    position: relative; /* This is required to position the textarea at the bottom */
+    height: 200px; /* Set this to the desired fixed height of your container */
+    overflow: hidden; /* This ensures that the textarea doesn't cause scrollbars */
+}
+
+/* Responsiveness */
+@media (max-width: 768px) {
+    #upper-key-metrics .card {
+        height: auto; /* Adjust height for smaller screens */
+    }
+}
+
+/* Button Styles */
+.custom-button, 
+#export-button,
+#search-button-partswise,
+#csv-button,
+#suggest-edit-button,
+#submit-suggestion-button,
+#close-welcome-modal { /* Included :hover state for .info-button here */
+    background-color: var(--accent-color);
+    border: none;
+    border-radius: var(--border-radius);
+    color: var(--primary-color);
+    cursor: pointer;
+    padding: 10px;
+    transition: background-color var(--transition-speed);
+    z-index: 10;
+}
+
+.info-button:hover {
+    background-color: var(--accent-color);
+    color: var(--primary-color);
+    transition: background-color var(--transition-speed);
+}
+
+
+.custom-button:hover,
+#export-button:hover,
+#search-button-partswise:hover,
+#suggest-edit-button:hover,
+#submit-suggestion-button:hover,
+#csv-button:hover,
+#close-welcome-modal:hover {
+    background-color: #7bccd0;
+}
+
+#search-button-partswise {
+    margin-bottom: 1.25rem;
+    width: 75%;
+    transform: translateX(15%);
+}
+
+.info-button:hover { /* Included :hover state for .info-button here */
+    background-color: var(--accent-color);
+    border: none;
+    color: var(--primary-color);
+    cursor: pointer;
+    padding: 10px;
+    transition: background-color var(--transition-speed);
+    z-index: 10;
+}
+
+#get-started-button {
+    margin-bottom: 15px;
+}
+
+.display-3, .lead {
+    color: var(--text-color);
+    font-family: var(--font-family);
+}
+
+#submit-suggestion-button {
+    margin-left: 10px;
+}
+
+.popover {
+    border-color: var(--primary-color);
+    box-shadow: var(--box-shadow);
+}
+
+.popover-header {
+    background-color: var(--primary-color);
+    color: var(--background-color);
+    font-size: 1rem;
+    border-bottom: none;
+    padding: 0.5rem;
+}
+
+.popover-body {
+    font-size: 1.15rem;
+    padding: 0.5rem;
+    color: var(--text-color);
+}
+
+.bs-popover-bottom .arrow::after {
+    display: none;
+}
+
+/* PartsWise Card Styling */
+#partswise-title {
+    color: var(--primary-color);
+    font-size: 1.5rem;
+    font-weight: bold;
+    margin-top: 10px;
+    margin-bottom: 1rem; /* Space below the title */
+    transform: translateY(-100%);
+}
+
+.partswise-card {
+    border-radius: 0.5rem;
+    border: none;
+    box-shadow: rgba(0, 0, 0, 0.1) 0px 4px 12px;
+    position: relative; /* Needed to position the info button absolutely */
+}
+
+.card-body {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    height: 100%;
+}
+
+.custom-button {
+    padding: 0.5rem 1rem;
+    background-color: var(--accent-color);
+    color: var(--primary-color);
+    border-radius: 0.5rem;
+    border: none;
+    width: auto; /* Only as wide as necessary */
+    display: inline-block; /* Allows the button to not take full width */
+}
+
+.partswise-output {
+    display: flex;
+    flex-direction: column;
+    align-items: center; /* Align children (table and text) to the center */
+    width: 100%; /* Full width to maximize space */
+    overflow-x: auto; /* Allows scrolling if content is too wide */
+    box-sizing: border-box; /* Border and padding are included in width */
+}
+
+/* For the table container specifically */
+.table-container {
+    width: 100%; /* Allow the table to fill the container */
+    max-width: 100%; /* Prevent it from overflowing */
+    padding: 0;
+    margin: 0 auto; /* Center the table within the container */
+    box-sizing: border-box;
+    flex-grow: 1; /* Allow the table container to expand */
+    margin-bottom: 30px;
+}
+
+/* For text output */
+.partswise-output-text {
+    font-size: 18px;
+    color: var(--text-color);
+    font-family: var(--font-family);
+    text-align: center; /* Center the text within its container */
+    width: 100%; /* Allow text container to fill the space */
+    margin-bottom: 30px;
+}
+
+/* Add this to your assets/style.css */
+.ag-header-cell-label {
+    justify-content: center;
+    align-items: center;
+    display: flex;
+    font-weight: bold;
+    font-size: 14px;
+
+}
+
+.ag-header {
+    background-color: var(--accent-color) !important; /* Same background color for entire header */
+    color: var(--text-color) !important;
+}
+
+.ag-header-group-cell,
+.ag-header-cell-text,
+.ag-header-cell-label {
+    border: none !important;
+    background-color: var(--accent-color) !important;
+    color: var(--text-color) !important;
+}
+
+.ag-root-wrapper {
+    width: auto !important; /* Override AG Grid's internal width */
+    border-radius: var(--border-radius) !important;
+
+}
+
+.cards-container {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start; /* Aligns items to the start of the cross axis */
+}
+
+.text-muted {
+    margin-top: 10px;
+    text-align: center;
+    color: var(--text-color);
+}
+
+.info-button {
+    position: absolute;
+    bottom: 1rem;
+    right: 1rem;
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 2.25rem; 
+    height: 2.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: rgba(0, 0, 0, 0.1) 0px 4px 12px;
+}
+
+.fa-info-circle {
+    font-size: 1rem;
+}
+
+.suggest-edit-header {
+    font-size: 20px; /* Stand-out font size for calls to action */
+    color: var(--primary-color);
+    text-align: center; /* Centered for attention */
+    margin-bottom: 10px; /* Space below header */
+}
+
+.suggest-edit-container {
+    display: flex;
+    justify-content: center; /* Centered horizontally */
+    align-items: center; /* Centered vertically */
+    gap: 10px; /* Space between elements */
+    padding: 10px;
+}
+
+.footer {
+    margin-top: auto;
+    color: var(--background-color); 
+    background-color: var(--primary-color);
+    text-align: center;
+    padding-top: 10px;
+}
+
+.header {
+    background-color: var(--background-color) !important;
+    box-shadow: var(--box-shadow);
+}
+
+.welcome-text {
+    font-size: 16px; /* Welcoming, readable size */
+    color: var(--primary-color);
+    margin-bottom: 1rem; /* Space below welcome message */
+}
+
+.button-group {
+    display: flex;
+    flex-wrap: wrap; /* Allow wrapping for smaller screens */
+    justify-content: center; /* Center buttons */
+    gap: 15px; /* Space between buttons */
+    margin-top: 10px;
+}
+
+/* Custom Modal Header */
+.custom-modal-header {
+    font-size: 24px;
+    font-weight: bold;
+    color: var(--text-color);
+    margin-bottom: 10px;
+    text-align: center;
+}
+
+.suggest-edit-header {
+    font-size: 16px;
+    color: var(--text-color);
+    margin-bottom: 20px;
+}
+
+.contact-details {
+    font-weight: bold;
+    color: var(--text-color);
+    margin-left: 10px;
+}
+
+
+/* Utilize the button group for a consistent layout of buttons */
+.button-group {
+    display: flex;
+    justify-content: space-around;
+    gap: var(--padding-standard);
+}
+
+
+.partswise-output-hidden {
+    margin-bottom: 0 !important;
+    margin-top: 0 !important;
+    display: none;
+}
+
+.tab {
+    margin-right: 25px; /* Adjust the space between tabs */
+}
+
+.tab:last-child {
+    margin-right: 0px; /* Ensure the last tab doesn't have extra space on the right */
+}
+
+.custom-tabs .tab {
+    border-radius: var(--border-radius);
+    color: var(--primary-color) !important;
+    background-color: #FFFFFF !important;
+    cursor: pointer;
+    border: none !important;
+    transition: color var(--transition-speed), background-color var(--transition-speed) !important;
+    padding: 5px !important;
+    margin-bottom: 5px !important;
+    font-size: 1.25em; /* Adjust the size as needed to match H4 */
+    font-weight: bold; /* Make it bold */
+}
+
+.custom-tabs .tab:hover {
+    box-shadow: var(--hover-shadow);
+    background-color: #FFFFFF !important;
+    color: var(--primary-color) !important;
+    background-color: rgba(0, 0, 0, 0.025) !important;
+}
+
+.custom-tabs .tab--selected {
+    color: var(--primary-color) !important;
+    border-top: 4px solid var(--primary-color) !important;
+    background-color: rgba(0, 0, 0, 0.025) !important;
+}
+
+
+.tabs-content-enter {
+    opacity: 0;
+    transform: translateY(-10%);
+    transition: opacity 300ms ease-in, transform 300ms ease-in;
+  }
+  
+  .tabs-content-enter-active {
+    opacity: 1;
+    transform: translateY(0%);
+  }
+  
+  .tabs-content-exit {
+    opacity: 1;
+    transform: translateY(0%);
+  }
+  
+  .tabs-content-exit-active {
+    opacity: 0;
+    transform: translateY(10%);
+    transition: opacity 300ms ease-in, transform 300ms ease-in;
+  }
+  
+#parent-card{
+    border: none;
+    margin-bottom: 0px;
+}
+
+.card-logo {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    border: none;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Example shadow */
+    margin-top: 20px;
+    margin-bottom: 20px;
+}
+
+#progress-text {
+    width: 82.5%; /* Make sure it matches the progress bar width */
+    margin-left: 3.5rem; /* Adjust left margin to align with the progress bar */
+    margin-bottom: 1rem; /* Add some bottom padding */
+}
+
+.progress-bar-hidden {
+    display: none;
+}
+
+#progress-bar {
+    margin: 0.75rem auto; /* Center the progress bar */
+    width: 82.5%;
+    border-radius: 4px;
+    transform: translateY(-15px);
+}
+
+.upload-header-text {
+    margin-left: 1.75rem;
+    transform: translateY(20px);
+}
+
+.upload-icon {
+    color: var(--primary-color);
+    transform: translateY(40px);
+}
+
+.upload-text {
+    color: var(--primary-color); /* Replace with your secondary color */
+    transform: translateY(25px);
+}
+
+/* Adjust the upload modal width and center it */
+.upload-modal .modal-content {
+    min-width: 650px; 
+    margin: auto; 
+    transform: translate(-10%, -18%);
+}
+
+.upload-area {
+    width: 90%;
+    height: 100px;
+    line-height: 100px;
+    border-width: 2px;
+    border-style: dashed;
+    border-color: #dee2e6e1;
+    border-radius: 5px;
+    text-align: center;
+    margin: 1rem auto; /* Adjust top and bottom margins as needed, auto centers horizontally */
+    cursor: pointer;
+}
+
+.full-width-button {
+    width: calc(100% - 90px); /* Subtract the total left and right margins */
+    background-color: var(--primary-color);
+    color: var(--background-color); /* Replace with your button text color */
+    border: none;
+    margin: 0 45px; /* Equal left and right margins */
+    transform: translateY(-20px);
+    padding: 10px;
+}
+.full-width-button:hover {
+    color: var(--primary-color);
+    background-color: var(--accent-color);
+}
+
+.modal-header {
+    border: none !important;
+    margin-top: 25px;
+    text-align: center !important;
+    font-weight: 700 !important;
+    transform: translate(15%, 5%);
+}
+
+/* Center everything within the modal vertically */
+.upload-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100%; /* Set the height to fill the parent */
+}
+
+.image-container {
+    position: relative;
+    left: 45%;
+    margin-top: 10px;
+    transform: translateY(-50%);
+}
+
+.landing-page-background {
+    height: 450px;
+}
+
+#feedback-email {
+    margin-bottom: 15px;
+}
+
+@media (max-width: 1199px) {
+    h4, .card p {
+        font-size: 0.95rem;
+    }
+}
+
+@media (max-width: 991px) {
+    h4, .card p {
+        font-size: 1rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .info-header {
+        font-size: 16px; /* Slightly smaller headers on mobile */
+    }
+    #partswise-title {
+        font-size: 24px; /* Smaller font size for mobile */
+        padding: 10px 0; /* Less padding on mobile */
+    }
+}
+
+@media (max-width: 576px) {
+    .upload-area {
+        width: 90%;
+        height: auto;
+        line-height: normal;
+    }
+    .upload-container {
+        padding: 1rem;
+    }
+}
+
