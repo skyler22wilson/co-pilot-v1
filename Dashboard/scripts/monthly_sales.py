@@ -4,7 +4,6 @@ import os
 import json
 from datetime import datetime
 import calendar
-import tempfile
 
 CONFIG_FILE = "Dashboard/configuration/SeasonalConfig.json"
 LOGGING_DIR = "Logs"

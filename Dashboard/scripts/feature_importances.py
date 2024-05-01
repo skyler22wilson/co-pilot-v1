@@ -112,6 +112,7 @@ def main(current_task, input_data):
     try:
         logging.info("Starting permutation importance calculation.")
         importance_df = calculate_permutation_importance(pipeline, X, y, n_repeats=5)
+        importance_df.to_csv('/Users/skylerwilson/Desktop/PartsWise/co-pilot-v1/Dashboard/Models/demand_predictor/feature_importance_scores.json')
         importance_data = importance_df.to_json(orient='split')
         parts_data = parts_data.to_json(orient='split')
 

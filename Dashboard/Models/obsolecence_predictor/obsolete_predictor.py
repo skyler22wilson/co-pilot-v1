@@ -1,5 +1,4 @@
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.calibration import CalibratedClassifierCV
 from sklearn.preprocessing import RobustScaler, PowerTransformer
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
@@ -37,15 +36,10 @@ def calculate_obsolescence_risk(df):
     model = RandomForestClassifier(**best_hyperparameters, random_state=42)
     model.fit(X_transformed, y)
 
-    # Calibrate the model
-    calibrated_model = CalibratedClassifierCV(model, method='sigmoid', cv='prefit')
-    calibrated_model.fit(X_transformed, y)
-
-    # Predict calibrated probabilities
-    calibrated_probs = calibrated_model.predict_proba(X_transformed)[:, 1]
+    predicted_probs = model.predict_proba(X_transformed)[:, 1]
 
     # Assign obsolescence risk to the original dataframe
-    df.loc[non_obsolete_mask, 'obsolescence_risk'] = calibrated_probs
+    df.loc[non_obsolete_mask, 'obsolescence_risk'] = predicted_probs
     # For obsolete parts, you might want to set a default risk or handle differently
     df.loc[~non_obsolete_mask, 'obsolescence_risk'] = 1.0  # or some default value
     
