@@ -8,8 +8,6 @@ from Dashboard.scripts.demand_calc import main as create_demand_score
 from Dashboard.scripts.create_categories import main as create_categories
 from Dashboard.scripts.check_reorder import main as calculate_reorder
 from Dashboard.Models.obsolecence_predictor.obsolete_predictor import main as obsolescence_risk
-from Dashboard.scripts.matrix_pricing import main as optimal_pricing
-from Dashboard.scripts.optimal_stock import main as optimal_stock
 from Dashboard.scripts.monthly_sales import main as monthly_sales
 from Dashboard.scripts.db_setup import main as build_database
 from functools import reduce
@@ -66,14 +64,6 @@ def reordering_task(self, input_data):
 @app.task(bind=True)
 def obsolescence_risk_task(self, input_data):
     return obsolescence_risk(self, input_data)
-
-@app.task(bind=True)
-def optimal_price_task(self, input_data):
-    return optimal_pricing(self, input_data)
-
-@app.task(bind=True)
-def optimal_quantity_task(self, input_data):
-    return optimal_stock(self, input_data)
 
 @app.task(bind=True)
 def aggregate_results(self, data_from_previous_tasks):
