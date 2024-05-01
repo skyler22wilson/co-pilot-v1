@@ -39,12 +39,12 @@ def setup_nlsql_query_engine():
     openai.api_key = os.environ["OPENAI_API_KEY"]
 
 
-    llm = OpenAI(temperature=0.1, model="gpt-3.5-turbo")
+    llm = OpenAI(temperature=0.1, model="gpt-4-turbo-preview")
     Settings.llm = llm
     query_engine = NLSQLTableQueryEngine(
         sql_database=sql_database,
         service_context=Settings,
-        tables = ['parts', 'sales'],
+        tables = ['parts'],
         context_str_prefix= context_preface
     )
     return query_engine
