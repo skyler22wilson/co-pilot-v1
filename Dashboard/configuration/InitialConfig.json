@@ -7,9 +7,7 @@
         "price": "float",
         "margin": "float",
         "months_no_sale": "int",
-        "last_sold_date": "string",
         "quantity_ordered_ytd": "int",
-        "last_received_date":"string",
         "special_orders_ytd": "int",
         "sales_last_jan": "int",
         "sales_last_feb": "int",
@@ -55,8 +53,7 @@
         "sales_last_sep", "sales_last_oct", "sales_last_nov", "sales_last_dec"
     ],
     "FloatColumns": ["price", "margin"],
-    "IntColumns": ["quantity", "months_no_sale", "special_orders_ytd"],
-    "DateColumns":["last_sold_date", "last_received_date"]
+    "IntColumns": ["quantity", "months_no_sale", "special_orders_ytd"]
 }
 
         

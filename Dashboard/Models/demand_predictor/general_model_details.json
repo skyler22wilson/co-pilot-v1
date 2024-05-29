@@ -1,32 +1,25 @@
 {
     "selected_features": [
         "months_no_sale",
-        "quantity_ordered_ytd",
         "special_orders_ytd",
-        "sales_last_may",
-        "sales_last_jun",
-        "rolling_3_month_sales",
-        "total_cost",
+        "cost_per_unit",
         "margin_percentage",
         "gross_profit",
-        "roi",
-        "12_month_turnover",
+        "90_days_supply",
         "90_day_turnover",
-        "sales_to_stock_ratio",
-        "order_to_sales_ratio",
         "seasonal_component"
     ],
     "best_hyperparameters": {
-        "colsample_bytree": 0.829658361793353,
-        "gamma": 0.29268541861234587,
-        "huber_slope": 0.2881834637917493,
-        "learning_rate": 0.042081299001766805,
+        "colsample_bytree": 0.8996472445802671,
+        "gamma": 0.27072356131656466,
+        "huber_slope": 0.2937209098762322,
+        "learning_rate": 0.046883768075141455,
         "max_delta_step": 10,
-        "max_depth": 12,
+        "max_depth": 10,
         "min_child_weight": 3,
-        "n_estimators": 740,
-        "reg_alpha": 0.0017779214765668847,
-        "reg_lambda": 2.021025941216329,
-        "subsample": 0.8722581348852894
+        "n_estimators": 650,
+        "reg_alpha": 0.00019901251828925172,
+        "reg_lambda": 1.4465731211355946,
+        "subsample": 0.6632631151271113
     }
 }
