@@ -1,1 +1,26 @@
-{"selected_features": ["quantity", "special_orders_ytd", "rolling_3_month_sales", "cost_per_unit", "total_cost", "margin_percentage", "gross_profit", "roi", "365_days_supply", "90_days_supply", "12_month_turnover", "90_day_turnover", "demand"], "best_hyperparameters": {"n_estimators": 300, "min_samples_split": 10, "min_samples_leaf": 10, "max_features": "sqrt", "max_depth": 8, "bootstrap": true}}
+{
+    "selected_features": [
+        "quantity",
+        "negative_on_hand",
+        "rolling_3_month_sales",
+        "cost_per_unit",
+        "total_cost",
+        "margin_percentage",
+        "gross_profit",
+        "roi",
+        "365_days_supply",
+        "90_days_supply",
+        "12_month_turnover",
+        "90_day_turnover",
+        "order_to_sales_ratio",
+        "demand"
+    ],
+    "best_hyperparameters": {
+        "n_estimators": 200,
+        "min_samples_split": 15,
+        "min_samples_leaf": 5,
+        "max_features": "sqrt",
+        "max_depth": 8,
+        "bootstrap": true
+    }
+}

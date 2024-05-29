@@ -69,32 +69,46 @@ def fix_price(df):
 
 def clean_text(dataframe, config):
     """
-    Clean text in specified columns.
+    Clean text in specified columns more efficiently.
     """
-    data_frame = dataframe.copy()
-    text_columns = config["TextColumns"]
+    # Copy only the text columns that need cleaning to avoid unnecessary data duplication
+    columns_to_clean = [col for col in config["TextColumns"] if col in dataframe.columns and dataframe[col].dtype == 'object']
+    data_frame = dataframe[columns_to_clean].copy()
 
-    for column_name in text_columns:
-        if column_name in data_frame.columns and data_frame[column_name].dtype == 'object':
-            # Convert to lower case, strip whitespaces, and remove non-printable characters
-            data_frame[column_name] = data_frame[column_name].str.lower().str.strip()
-            data_frame[column_name] = data_frame[column_name].apply(lambda x: re.sub(r'\s+', ' ', x).strip() if isinstance(x, str) else x)
-            logging.info(f'Cleaned text in column: {column_name}')
-    return data_frame
+    # Pre-compile the regular expression used in cleaning (if using complex expressions)
+    whitespace_re = re.compile(r'\s+')
+
+    for column_name in columns_to_clean:
+        # Perform cleaning operations using vectorized methods
+        cleaned_column = data_frame[column_name].str.lower().str.strip()
+        cleaned_column = cleaned_column.str.replace(whitespace_re, ' ', regex=True)
+        data_frame[column_name] = cleaned_column
+
+    # Log after cleaning all specified columns
+    logging.info(f'Cleaned text in columns: {columns_to_clean}')
+
+    # Return the original dataframe with cleaned columns
+    dataframe[columns_to_clean] = data_frame
+    return dataframe
 
 def clean_part_numbers(data_frame):
     """
-    Clean and validate part numbers.
+    Clean and validate part numbers using vectorized operations.
     """
+    # Define the valid part number pattern and compile the regex for space reduction
     valid_pattern = r'^(?=.*[0-9]).{3,15}$'
+    space_reducer = re.compile(r'\s+')
+
+    # Ensure part numbers are strings
     data_frame['part_number'] = data_frame['part_number'].astype(str)
-    # Apply regex match. .str.match() returns a boolean Series directly.
+
+    # Filter DataFrame based on valid part numbers using a pre-compiled pattern
     valid_mask = data_frame['part_number'].str.match(valid_pattern)
-    # Apply the valid mask to the DataFrame to filter it
-    data_frame = data_frame[valid_mask].copy() 
-    
-    # Clean part numbers by stripping and replacing multiple spaces
-    data_frame.loc[:, 'part_number'] = data_frame['part_number'].str.strip().apply(lambda x: re.sub(r'\s+', ' ', x))
+    data_frame = data_frame[valid_mask]
+
+    # Clean part numbers by stripping leading/trailing spaces and replacing multiple spaces with a single space
+    data_frame['part_number'] = data_frame['part_number'].str.strip().str.replace(space_reducer, ' ', regex=True)
+
     return data_frame
 
 def adjust_part_numbers(data_frame):
@@ -106,30 +120,27 @@ def adjust_part_numbers(data_frame):
 
 
 def merge_duplicate_parts(data_frame, config):
-    print(f'Original Shape: {data_frame.shape}')
-    original_column_order = data_frame.columns.tolist()
+    logging.info(f'Original Shape: {data_frame.shape}')
 
+    # Categorize columns based on their intended aggregation method
     sales_columns = config['SalesColumns']
     specific_columns = ['quantity', 'quantity_ordered_ytd', 'special_orders_ytd']
-    non_aggregated_columns = [col for col in original_column_order if col not in sales_columns + specific_columns + ['part_number']]
+    aggregation_columns = sales_columns + specific_columns
+    non_aggregated_columns = [col for col in data_frame.columns if col not in aggregation_columns + ['part_number']]
 
-    # Define aggregation rules for sales and specific columns
-    aggregation_rules = {col: 'sum' for col in sales_columns + specific_columns}
-    aggregation_rules['months_no_sale'] = 'min'
-
-    # Use 'first' for non-aggregated columns
-    for col in non_aggregated_columns:
-        aggregation_rules[col] = 'first'
+    # Define aggregation rules combining all column types
+    aggregation_rules = {col: 'sum' for col in aggregation_columns}
+    aggregation_rules.update({col: 'first' for col in non_aggregated_columns})
+    aggregation_rules['months_no_sale'] = 'min'  # Custom rule for specific columns
 
     # Perform the aggregation
     aggregated_df = data_frame.groupby('part_number').agg(aggregation_rules).reset_index()
-    print(f'Aggregated Shape: {aggregated_df.shape}')
+    logging.info(f'Aggregated Shape: {aggregated_df.shape}')
 
-    # Reorder columns according to the original order
-    # Intersection of original columns and aggregated columns to handle any columns that were dropped
-    reordered_columns = [col for col in original_column_order if col in aggregated_df.columns]
+    # Reorder columns to match the original order, ensuring all are present
+    reordered_df = aggregated_df[data_frame.columns.intersection(aggregated_df.columns)]
 
-    return aggregated_df[reordered_columns]
+    return reordered_df
 
 def clip_sales_columns(dataframe,config):
     """
@@ -141,19 +152,14 @@ def clip_sales_columns(dataframe,config):
     return data_frame
 
 def adjust_quantity(dataframe):
-    data_frame = dataframe.copy()
-    data_frame['quantity'] = np.abs(data_frame['quantity']) 
-    return data_frame
-
-def convert_dates_for_sql(df, date_columns):
-    for col in date_columns:
-        if col in df.columns:
-            # Convert column to datetime, assuming month/day/year format
-            df[col] = pd.to_datetime(df[col], format='%m/%d/%Y', errors='coerce')
-            # Format the datetime object as a string in the year-month-day format
-            df[col] = df[col].dt.strftime('%Y-%m-%d')
-
+    df = dataframe.copy()
+    
+    # Use vectorized operations for conditions
+    df['negative_on_hand'] = df['quantity'].where(df['quantity'] < 0, 0).astype(int)
+    df['quantity'] = df['quantity'].where(df['quantity'] >= 0, 0).astype(int)
+    
     return df
+
 
 def update_months_no_sale(row, sales_columns_this_year, sales_columns_last_year):
     current_month_index = datetime.now().month - 1 #set current month to march, this is for complete feb data
@@ -185,7 +191,7 @@ def inventory_check(df, config):
     sales_columns = config["SalesColumns"]
     
     # Determine rows where quantity is zero and there have been no sales across all sales columns
-    no_inventory_no_sales = (df['quantity'] == 0) & (df[sales_columns].sum(axis=1) == 0)
+    no_inventory_no_sales = (df['quantity'] == 0) & (df[sales_columns].sum(axis=1) == 0) & (df['negative_on_hand'] == 0)
     
     # Drop these rows from the dataframe
     df = df.loc[~no_inventory_no_sales]
@@ -205,8 +211,6 @@ def preprocess_data(data_frame, config):
     data_frame = adjust_part_numbers(data_frame)
     data_frame = clean_text(data_frame, config)
     data_frame = clip_sales_columns(data_frame, config)
-    date_columns = config['DateColumns']
-    data_frame = convert_dates_for_sql(data_frame, date_columns)
     sales_this_year = config['SalesThisYear']
     sales_last_year = config['SalesLastYear']
     data_frame['months_no_sale'] = data_frame.apply(

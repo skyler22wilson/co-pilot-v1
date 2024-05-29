@@ -1,6 +1,5 @@
 import pandas as pd
 from sklearn.inspection import permutation_importance
-import tempfile
 import logging
 import json
 from joblib import load
@@ -8,7 +7,7 @@ from sklearn.preprocessing import MinMaxScaler
 
 # Constants
 CONFIG_FILE = "Dashboard/configuration/SeasonalConfig.json"
-DEMAND_PREDICTOR = "Dashboard/Models/demand_predictor/demand_pipeline.joblib"
+DEMAND_PREDICTOR = "/Users/skylerwilson/Desktop/PartsWise/co-pilot-v1/Dashboard/Models/demand_predictor/xgb_regressor_with_selected_features.joblib"
 RANDOM_STATE = 42
 
 
