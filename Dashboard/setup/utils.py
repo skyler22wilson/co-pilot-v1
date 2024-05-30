@@ -1,7 +1,14 @@
-import sqlite3
 import pandas as pd
 import base64
 import io
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, scoped_session
+
+# Define the engine and session
+def get_engine_and_session(db_file_path):
+    engine = create_engine(f'sqlite:///{db_file_path}')
+    Session = scoped_session(sessionmaker(bind=engine))
+    return engine, Session
 
 def parse_contents(contents):
     try:
@@ -18,11 +25,6 @@ def parse_contents(contents):
 
     return None
 
-def get_db_connection(db_file_path):
-    """ Create a database connection to a SQLite database """
-    print(db_file_path)
-    conn = sqlite3.connect(db_file_path)
-    return conn
 
 def generate_table_columns(dataframe, columns_list):
     # Determine column types

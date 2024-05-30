@@ -1,130 +1,79 @@
 import pandas as pd
 import numpy as np
-from sklearn.pipeline import Pipeline
-from sklearn.model_selection import train_test_split
-from sklearn.compose import ColumnTransformer
-from xgboost import XGBRegressor
-from sklearn.preprocessing import RobustScaler, PowerTransformer
-from sklearn.feature_selection import RFE
 import joblib
 import logging
-import os
 import json
 
-CONFIG_FILE = "Dashboard/configuration/SeasonalConfig.json"
+# Initialize logging
+log_path = 'Logs/demand_predictor_logfile.log'
+logging.basicConfig(filename=log_path, level=logging.INFO, format='%(asctime)s - %(message)s')
 
-# Load configuration
+PREPROCESSOR_PATH = '/Users/skylerwilson/Desktop/PartsWise/co-pilot-v1/Dashboard/Models/demand_predictor/preprocessor.joblib'
+MODEL_PATH = '/Users/skylerwilson/Desktop/PartsWise/co-pilot-v1/Dashboard/Models/demand_predictor/xgb_regressor_with_selected_features.joblib'
+MODEL_INFO_PATH = '/Users/skylerwilson/Desktop/PartsWise/co-pilot-v1/Dashboard/Models/demand_predictor/general_model_details.json'
+
 def load_configuration(config_path):
-    with open(config_path, 'r') as config_file:
-        return json.load(config_file)
-    
-def create_pipeline(X_train, best_params):
-    # Initialize the model
-    model = XGBRegressor(**best_params)
+    """ Load JSON configuration file. """
+    try:
+        with open(config_path, 'r') as config_file:
+            return json.load(config_file)
+    except Exception as e:
+        logging.error(f"Error loading configuration from {config_path}: {e}")
+        raise
 
-    # Identify numerical features
-    numerical_features = X_train.select_dtypes(include=['int64', 'float64']).columns
-    preprocessor = ColumnTransformer(
-        transformers=[
-            ('num', Pipeline([
-                ('scaler', RobustScaler()),
-                ('power_trans', PowerTransformer(method='yeo-johnson'))]),
-            numerical_features)
-        ])
-    
-    pipeline = Pipeline(steps=[
-        ('preprocessor', preprocessor),
-        ('model', model)
-    ])
-    return pipeline
-
-
-def preprocess_data(input_data, selected_features):
-    print("Loading data...")
-    data = json.loads(input_data)  # Correctly load the JSON string into a Python dictionary
+def preprocess_data(input_data):
+    """ Load and preprocess data from JSON input. """
+    logging.info("Loading and preprocessing data...")
+    data = json.loads(input_data)
     parts_data = pd.DataFrame(data['data'], columns=data['columns'])
-    
-    # Filter out records with 'months_no_sale' >= 12
     model_data = parts_data[parts_data['months_no_sale'] < 12]
+    return model_data
 
-    
-    # Select the features (X) and target (y) for modeling
-    feature_cols = selected_features
-    X = model_data[feature_cols]
-    y = model_data['rolling_12_month_sales']
-    
-    print("Data loaded and preprocessed.")
+def get_feature_indices(preprocessor, selected_features):
+    """ Map selected feature names to their corresponding indices in the preprocessed array. """
+    try:
+        all_features = preprocessor.transformers_[0][2]
+        return [list(all_features).index(feature) for feature in selected_features]
+    except ValueError as e:
+        logging.error(f"Error finding feature indices: {e}")
+        raise
 
-    # Split the data into training and test sets
-    return train_test_split(X, y, test_size=0.33, random_state=42)
-
-def main(current_task, data):
-    print('Starting the prediction...')
-    model_path = os.path.join('Dashboard', 'Models', 'demand_predictor', 'demand_pipeline.joblib')
-    log_path = 'Logs/demand_predictor_logfile.log'
-
-    # Create directories if they don't exist
-    os.makedirs(os.path.dirname(model_path), exist_ok=True)
-    config = load_configuration(CONFIG_FILE)
-    if not config:
-        logging.error('Failed to load configuration.')
-        return
-    # Configure logging
-    logging.basicConfig(filename=log_path, level=logging.INFO)
-    logging.info("Demand forecasting script started.")
+def main(current_task, input_data):
+    """ Main function to load model, preprocess data, and make predictions. """
+    logging.info("Starting the demand prediction process...")
 
     try:
-        json_path = 'Dashboard/Models/demand_predictor/general_model_details.json'
-        with open(json_path, 'r') as file:
-            general_model_info = json.load(file)
-            # Extract hyperparameters and selected features
-            hyperparameters = general_model_info.get('hyperparameters', {})
-            selected_features = general_model_info.get('selected_features', [])
-    except FileNotFoundError as e:
-        logging.error(f"JSON file not found at {json_path}: {e}")
-        # Update task state with more specific error message
-        current_task.update_state(state='FAILURE', meta={'progress': 0, 'message': f'JSON file not found at {json_path}: {e}'})
-        return False
-    except Exception as e:
-        logging.error(f"Error loading JSON file from {json_path}: {str(e)}")
-        current_task.update_state(state='FAILURE', meta={'progress': 0, 'message': f'Error loading JSON file from {json_path}: {str(e)}'})
-        return False
-    try:  
+        # Load model info to get selected features
+        model_info = load_configuration(MODEL_INFO_PATH)
+        selected_features = model_info.get('selected_features', [])
+        logging.info(f"Selected features: {selected_features}")
         
-        X_train, X_test, y_train, y_test = preprocess_data(data, selected_features)
-        print("Data preprocessing and split completed.")
+        # Load the pre-trained preprocessor and model
+        preprocessor = joblib.load(PREPROCESSOR_PATH)
+        model = joblib.load(MODEL_PATH)
+
+        # Preprocess data
+        X = preprocess_data(input_data)
         
+        # Transform the data and select features
+        X_transformed = preprocessor.transform(X)
+        feature_indices = get_feature_indices(preprocessor, selected_features)
+        X_selected = X_transformed[:, feature_indices]
 
-        print('creating pipeline')
-        # Create a pipeline with preprocessing and the model
-        pipeline = create_pipeline(X_train[selected_features], hyperparameters)
-        print('pipeline created')
+        # Generate predictions
+        y_pred = model.predict(X_selected)
 
-        pipeline.fit(X_train[selected_features], y_train)
-        y_pred = pipeline.predict(X_test[selected_features])
-        nan_indices = np.where(np.isnan(y_pred))[0]
-        print(f"Number of NaN predictions: {len(nan_indices)}")
-        if len(nan_indices) > 0:
-            print(f"Indices with NaN predictions: {nan_indices}")
-        else:
-            print("Predictions:", y_pred)
-
-        # Check if there are NaN values in predictions
         if np.isnan(y_pred).any():
-            print("Warning: NaN values found in predictions")
+            logging.warning("NaN values found in predictions")
 
-        print("Model fitting completed. Saving model...")
-        joblib.dump(pipeline, model_path)
-        print(f'Model saved to: {model_path}')
+        logging.info("Predictions generated successfully.")
+        return input_data
 
-        logging.info("Demand forecasting script completed successfully.")
-        return data
-
-    except ValueError as e:
-        logging.error(f"Invalid JSON format: {e}")
-        current_task.update_state(state='FAILURE', meta={'progress': 0, 'message': f'Error processing data: Invalid file format.'})
-        return False
     except Exception as e:
-        logging.error(f"Error in processing: {str(e)}")
-        current_task.update_state(state='FAILURE', meta={'progress': 0, 'message': f'Error processing data: {str(e)}'})
+        logging.error(f"An error occurred during processing: {e}")
+        if current_task:
+            current_task.update_state(state='FAILURE', meta={'progress': 0, 'message': str(e)})
         return False
+
+
+

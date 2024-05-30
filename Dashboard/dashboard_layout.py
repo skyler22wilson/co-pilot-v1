@@ -1,7 +1,7 @@
 from dash import html, dcc
 import dash_bootstrap_components as dbc
 from Dashboard.components.partswise_output import get_partswise_card
-from Dashboard.scripts.db_setup import generate_db_file_path
+from Dashboard.scripts.create_db import generate_db_file_path
 from Dashboard.components.total_cards import create_total_cards
 
 db_file_path = generate_db_file_path()

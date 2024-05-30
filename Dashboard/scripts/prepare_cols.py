@@ -41,7 +41,7 @@ def calculate_rolling_12_month_sales(df):
 def calculate_3_month_rolling_sales(df):
     print('Calculating 3 month rolling sales')
     # Get the current month, adjusted for having only completed data through February
-    current_month = datetime.now().month - 1  # -1 because last complete month is February if running in March
+    current_month = datetime.now().month - 3  
 
     # Define sales columns for the last three months
     if current_month <= 3:
@@ -59,6 +59,13 @@ def calculate_3_month_rolling_sales(df):
     print('3 month rolling sales calculated')
 
     return df
+
+def current_month_sales(df):
+    print('Calculating current month sales for 30 days supply...')
+    current_month = datetime.now().month
+    this_year_sales_columns = [f'sales_{calendar.month_abbr[i].lower()}' for i in range(1, current_month + 1)]
+    this_month_sales = df[this_year_sales_columns[current_month - 4]]
+    return this_month_sales
 
 def calculate_unit_cost(df: pd.DataFrame) -> pd.DataFrame:
     df['cost_per_unit'] = np.round(df['price'] - df['margin'], 2)
@@ -91,39 +98,52 @@ def calc_roi(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 def calculate_day_supply(df):
+    # Calculate average daily sales over 12 months and 3 months
+    avg_daily_sales_12mo = df['rolling_12_month_sales'] / 360
+    avg_daily_sales_3mo = df['rolling_3_month_sales'] / 90
+    avg_daily_sales_1mo =  current_month_sales(df) / 30
+    
+    # Calculate days' supply for 12 months
+    df['annual_days_supply'] = df['quantity'] / avg_daily_sales_12mo
+    df['annual_days_supply'] = df['annual_days_supply'].replace([np.inf, -np.inf], np.nan).fillna(0)
+    df['annual_days_supply'] = np.round(df['annual_days_supply'], 0)
+    
+    # Calculate days' supply for 3 months
+    df['three_month_days_supply'] = df['quantity'] / avg_daily_sales_3mo
+    df['three_month_supply'] = df['three_month_days_supply'].replace([np.inf, -np.inf], np.nan).fillna(0)
+    df['three_month_days_supply'] = np.round(df['three_month_days_supply'], 0)
 
-    avg_daily_sales = df['rolling_12_month_sales'] / 365
+    # Calculate days' supply for 1 month
+    df['one_month_days_supply'] = df['quantity'] / avg_daily_sales_1mo
+    df['one_month_days_supply'] = df['one_month_days_supply'].replace([np.inf, -np.inf], np.nan).fillna(0)
+    df['one_month_days_supply'] = np.round(df['one_month_days_supply'], 0)
 
-    # Calculate days' supply based on current inventory levels
-    df['365_days_supply'] = df['quantity'] / avg_daily_sales
-    df['365_days_supply'] = df['365_days_supply'].replace([np.inf, -np.inf], np.nan).fillna(0)  # Handle divisions by zero or missing sales data
-    df['365_days_supply'] = np.round(df['365_days_supply'], 1)
-
-    avg_daily_3_mo_sales = df['rolling_3_month_sales'] / 90
-
-    # Calculate days' supply based on current inventory levels
-    df['90_days_supply'] = df['quantity'] / avg_daily_3_mo_sales
-    df['90_days_supply'] = df['90_days_supply'].replace([np.inf, -np.inf], np.nan).fillna(0)  # Handle divisions by zero or missing sales data
-    df['90_days_supply'] = np.round(df['90_days_supply'], 1)
     return df
-
 
 def calculate_turnover(df):
     # Calculate annual turnover using 365 days' supply
-    if '365_days_supply' in df.columns:
-        df['12_month_turnover'] = 365 / df['365_days_supply']
-        df['12_month_turnover'] = df['12_month_turnover'].replace([np.inf, -np.inf], np.nan).fillna(0)
-        df['12_month_turnover'] = np.round(df['12_month_turnover'], 1)
+    if 'annual_days_supply' in df.columns:
+        df['annual_month_turnover'] = 365 / df['annual_days_supply']
+        df['annual_month_turnover'] = df['annual_month_turnover'].replace([np.inf, -np.inf], np.nan).fillna(0)
+        df['annual_month_turnover'] = np.round(df['annual_month_turnover'], 1)
     else:
         logging.error("Annual days' supply data is missing")
 
     # Calculate 90-day turnover using 90 days' supply
-    if '90_days_supply' in df.columns:
-        df['90_day_turnover'] = 90 / df['90_days_supply']
-        df['90_day_turnover'] = df['90_day_turnover'].replace([np.inf, -np.inf], np.nan).fillna(0)
-        df['90_day_turnover'] = np.round(df['90_day_turnover'], 1)
+    if 'three_month_days_supply' in df.columns:
+        df['three_month_turnover'] = 90 / df['three_month_days_supply']
+        df['three_month_turnover'] = df['three_month_turnover'].replace([np.inf, -np.inf], np.nan).fillna(0)
+        df['three_month_turnover'] = np.round(df['three_month_turnover'], 1)
     else:
-        logging.error("90 days' supply data is missing")
+        logging.error("three_month days' supply data is missing")
+
+    # Calculate 30-day turnover using 30 days' supply
+    if 'one_month_days_supply' in df.columns:
+        df['one_month_turnover'] = 30 / df['one_month_days_supply']
+        df['one_month_turnover'] = df['one_month_turnover'].replace([np.inf, -np.inf], np.nan).fillna(0)
+        df['one_month_turnover'] = np.round(df['one_month_turnover'], 1)
+    else:
+        logging.error("one_month days' supply data is missing")
 
     return df
 
@@ -176,42 +196,36 @@ def prepare_and_melt_sales_data(df):
     return df, df_melted_sales
 
 def extract_seasonal_component(sales_data, time_column, value_column, top_n_freq=1):
-    
-    # If the time column contains month names, convert them to numerical values
+    # Efficiently convert month names to numbers if necessary
     if sales_data[time_column].dtype == object:
         month_to_num = {month: index for index, month in enumerate(calendar.month_name[1:], start=1)}
-        sales_data[time_column] = sales_data[time_column].map(month_to_num)
-    
-    # Ensure sales_data is sorted by time_column to maintain correct order for Fourier analysis
-    sales_data_sorted = sales_data.sort_values(by=time_column)
-    y = sales_data_sorted[value_column].values
-    
-    # Prepare the array for FFT. PyFFTW works with numpy arrays.
+        sales_data[time_column] = sales_data[time_column].apply(lambda x: month_to_num[x] if x in month_to_num else x)
+
+    # Sort in-place
+    sales_data.sort_values(by=time_column, inplace=True)
+    y = sales_data[value_column].values
+
+    # Using PyFFTW for FFT computation, assuming it's properly configured for efficiency
     y_fft = pyfftw.empty_aligned(len(y), dtype='complex128')
     y_fft[:] = y
-    
-    # Perform the FFT using PyFFTW
     fft_object = pyfftw.builders.rfft(y_fft)
     fft_values = fft_object()
-    
-    # The frequency bins are not affected by the FFT library used, so we can still use numpy for this part
+
+    # Process FFT results to find seasonal components
     fft_freq = np.fft.rfftfreq(len(y))
-    
-    # Identify dominant frequencies
     top_indices = np.argsort(-np.abs(fft_values))[:top_n_freq]
-    top_freq = fft_freq[top_indices]
-    
+
+    # Calculate amplitudes and phases of dominant frequencies
     amplitudes = np.abs(fft_values[top_indices])
     phases = np.angle(fft_values[top_indices])
-    
+
+    # Compute seasonal component mean directly
     time_points = np.arange(len(y))
     frequencies = fft_freq[top_indices]
+    seasonal_component = amplitudes * np.cos(2 * np.pi * frequencies[:, np.newaxis] * time_points + phases[:, np.newaxis])
+    seasonal_component_mean = np.mean(np.sum(seasonal_component, axis=0))
 
-    seasonal_component = np.sum(amplitudes * np.cos(2 * np.pi * frequencies[:, np.newaxis] * time_points + phases[:, np.newaxis]), axis=0)
-    seasonal_component_mean = np.mean(seasonal_component)
-    
     return seasonal_component_mean
-
 
 def calculate_additional_metrics(df) -> pd.DataFrame:
     df = calculate_rolling_12_month_sales(df)
@@ -260,7 +274,7 @@ def main(current_task, input_data):
         parts_data, df_melted_sales = prepare_and_melt_sales_data(parts_data)
 
         seasonal_components = df_melted_sales.groupby('part_number').apply(
-            lambda group: extract_seasonal_component(group, 'month', 'quantity_sold')
+        lambda group: extract_seasonal_component(group, 'month', 'quantity_sold')
         ).reset_index(name='seasonal_component')
 
         if 'seasonal_component' in parts_data:
@@ -268,7 +282,7 @@ def main(current_task, input_data):
         else:
             # Merge seasonal components back to the original DataFrame
             parts_data_with_seasonal = parts_data_final.merge(seasonal_components, on='part_number', how='left')
-        
+
         # Save the DataFrame with seasonal components to output_data
         parts_data_with_seasonal = parts_data_with_seasonal.to_json(orient='split')
         # Return success at the end
