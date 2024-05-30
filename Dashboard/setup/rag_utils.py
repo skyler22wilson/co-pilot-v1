@@ -73,8 +73,7 @@ def setup_nlsql_query_engine():
 
     # Combine Table Contexts
     context_str_combined = context_str + "\n\n" + table_context_str
-
-    openai.api_key = os.environ["OPENAI_API_KEY"]  # Replace with your OpenAI API key
+    openai.api_key = "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"  # Replace with your OpenAI API key
     query_engine = SQLTableRetrieverQueryEngine(
         sql_database=sql_database,
         table_retriever=obj_index.as_retriever(similarity_top_k=1),
