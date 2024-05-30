@@ -1,5 +1,5 @@
 from Dashboard.setup.common_config import calculate_ytd_metrics, format_currency, format_perc, load_config, calculate_percentage_change, turn_result
-from Dashboard.scripts.db_setup import generate_db_file_path
+from Dashboard.scripts.create_db import generate_db_file_path
 import sqlite3
 from dash import html
 import dash_bootstrap_components as dbc

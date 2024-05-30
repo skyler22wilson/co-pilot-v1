@@ -46,6 +46,7 @@ def main(current_task, input_data):
         # Load dataset
         original_data = json.loads(input_data)  
         dataset = pd.DataFrame(original_data['data'], columns=original_data['columns'])
+        logging.info(f"Length of categories JSON file: {len(dataset)} rows")
 
         current_task.update_state(state='PROGRESS', meta={'message': 'Creating inventory categories...'})
 

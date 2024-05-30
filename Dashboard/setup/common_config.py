@@ -99,18 +99,18 @@ def create_temp_month_index_table(conn):
     
     # Insert data into the temporary table
     insert_data_queries = [
-        "INSERT INTO MonthIndex (month_name, month_index) VALUES ('January', 1);",
-        "INSERT INTO MonthIndex (month_name, month_index) VALUES ('February', 2);",
-        "INSERT INTO MonthIndex (month_name, month_index) VALUES ('March', 3);",
-        "INSERT INTO MonthIndex (month_name, month_index) VALUES ('April', 4);",
-        "INSERT INTO MonthIndex (month_name, month_index) VALUES ('May', 5);",
-        "INSERT INTO MonthIndex (month_name, month_index) VALUES ('June', 6);",
-        "INSERT INTO MonthIndex (month_name, month_index) VALUES ('July', 7);",
-        "INSERT INTO MonthIndex (month_name, month_index) VALUES ('August', 8);",
-        "INSERT INTO MonthIndex (month_name, month_index) VALUES ('September', 9);",
-        "INSERT INTO MonthIndex (month_name, month_index) VALUES ('October', 10);",
-        "INSERT INTO MonthIndex (month_name, month_index) VALUES ('November', 11);",
-        "INSERT INTO MonthIndex (month_name, month_index) VALUES ('December', 12);"
+        "INSERT INTO MonthIndex (month_name, month_index) VALUES ('january', 1);",
+        "INSERT INTO MonthIndex (month_name, month_index) VALUES ('february', 2);",
+        "INSERT INTO MonthIndex (month_name, month_index) VALUES ('march', 3);",
+        "INSERT INTO MonthIndex (month_name, month_index) VALUES ('april', 4);",
+        "INSERT INTO MonthIndex (month_name, month_index) VALUES ('may', 5);",
+        "INSERT INTO MonthIndex (month_name, month_index) VALUES ('june', 6);",
+        "INSERT INTO MonthIndex (month_name, month_index) VALUES ('july', 7);",
+        "INSERT INTO MonthIndex (month_name, month_index) VALUES ('august', 8);",
+        "INSERT INTO MonthIndex (month_name, month_index) VALUES ('september', 9);",
+        "INSERT INTO MonthIndex (month_name, month_index) VALUES ('october', 10);",
+        "INSERT INTO MonthIndex (month_name, month_index) VALUES ('november', 11);",
+        "INSERT INTO MonthIndex (month_name, month_index) VALUES ('december', 12);"
     ]
 
     for query in insert_data_queries:
