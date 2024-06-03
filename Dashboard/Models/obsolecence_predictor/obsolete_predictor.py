@@ -3,6 +3,7 @@ import numpy as np
 import logging
 import json
 from joblib import load
+from sklearn.calibration import CalibratedClassifierCV
 
 # Load model hyperparameters and preprocessor
 def load_model_info(model_info_path, preprocessor_path, model_path):
@@ -51,7 +52,11 @@ def calculate_obsolescence_risk(df):
     logging.info(f"Selected columns: {X_selected}")
 
     # Predict probabilities using the calibrated model
-    predicted_probs = model.predict_proba(X_selected)[:, 1]
+    calibrator = CalibratedClassifierCV(model, cv='prefit', method='isotonic')
+    calibrator.fit(X_selected, non_obsolete_df['obsolescence_dummy'])
+
+    # Predict probabilities using the calibrated model
+    predicted_probs = calibrator.predict_proba(X_selected)[:, 1]
 
     # Assign obsolescence risk to the original DataFrame
     df.loc[non_obsolete_mask, 'obsolescence_risk'] = predicted_probs

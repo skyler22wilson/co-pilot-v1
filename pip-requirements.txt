@@ -1,0 +1,14 @@
+dash_ag_grid==31.0.1
+llama-index==0.10.14
+llama-index-agent-openai==0.1.5
+llama-index-core==0.10.14
+llama-index-llms-openai==0.1.6
+llama-index-multi-modal-llms-openai==0.1.4
+llama-index-program-openai==0.1.4
+llama-parse==0.3.4
+llamaindex-py-client==0.1.13
+python-engineio==4.9.0
+python-socketio==5.11.1
+redis==5.0.4
+xmljson==0.2.0
+

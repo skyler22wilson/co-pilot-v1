@@ -29,6 +29,31 @@ def verify_selected_features(dataset, selected_features):
         logging.info("All selected features are present in the dataset.")
 
 def calculate_permutation_importance(model, X, y, n_repeats):
+    """
+    Calculate the permutation importance of features for a given model.
+
+    This function computes the permutation importance of each feature in the dataset by measuring the increase in the prediction error of the model when the values of that feature are randomly shuffled. The importance scores are scaled to provide a better interpretation.
+
+    Args:
+        model (sklearn.base.BaseEstimator): The trained model for which permutation importance is to be calculated.
+        X (pd.DataFrame): The input features used for prediction.
+        y (pd.Series or np.ndarray): The true labels corresponding to the input features.
+        n_repeats (int): The number of times to shuffle each feature for computing the permutation importance.
+
+    Returns:
+        pd.DataFrame: A DataFrame containing the features, their importance scores, standard deviations of the importance scores, and scaled importance scores. The DataFrame is sorted by the importance scores in descending order.
+
+    Raises:
+        ValueError: If NaN values are found in the model predictions.
+        Exception: If there is an error during model prediction, with the specific error message.
+
+    Steps:
+        1. Predict the target values using the provided model and input features.
+        2. Check for NaN values in the model predictions and raise an error if found.
+        3. Compute the permutation importance of the features using `sklearn.inspection.permutation_importance`.
+        4. Create a DataFrame with the features, their importance scores, standard deviations, and scaled importance scores.
+        5. Sort the DataFrame by the importance scores in descending order.
+    """
     try:
         y_pred = model.predict(X)
         if pd.Series(y_pred).isnull().any():

@@ -7,6 +7,23 @@ CONFIG_FILE = "Dashboard/configuration/SeasonalConfig.json"
 LOGGING_DIR = "Logs"
 
 def categorizer(df):
+    """
+    Categorize inventory items based on their sales history and demand.
+
+    This function categorizes inventory items into four categories: 'essential', 'non-essential', 
+    'nearing_obsolete', and 'obsolete' based on the number of months without sales and the demand.
+    The demand threshold is computed as the 95th percentile of the demand column.
+
+    Args:
+        df (pd.DataFrame): Input DataFrame containing inventory data. 
+                           Must include 'months_no_sale' and 'demand' columns.
+
+    Raises:
+        ValueError: If the required columns ('months_no_sale', 'demand') are not present in the DataFrame.
+
+    Returns:
+        pd.DataFrame: DataFrame with an additional 'inventory_category' column indicating the category of each item.
+    """
     # Ensure that required columns are present
     required_columns = ['months_no_sale', 'demand']
     missing_columns = [column for column in required_columns if column not in df.columns]
@@ -34,7 +51,6 @@ def categorizer(df):
     df.loc[essential_criteria, 'inventory_category'] = 'essential'
 
     return df
-
 
 def main(current_task, input_data):
     print('Creating Categories')
