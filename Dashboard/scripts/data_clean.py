@@ -2,7 +2,6 @@ import pandas as pd
 import logging
 from datetime import datetime
 import json
-import numpy as np
 import os
 import re
 
@@ -63,9 +62,11 @@ def clean_and_convert_numeric(df, columns):
     return df
 
 def fix_price(df):
+    """
+    Ensure thatprices are non-negative.
+    """
     price_mask = df['price'] > 0
     return df[price_mask]
-
 
 def clean_text(dataframe, config):
     """
@@ -120,6 +121,9 @@ def adjust_part_numbers(data_frame):
 
 
 def merge_duplicate_parts(data_frame, config):
+    """
+    Merges duplicate part number information into a single unique row
+    """
     logging.info(f'Original Shape: {data_frame.shape}')
 
     # Categorize columns based on their intended aggregation method

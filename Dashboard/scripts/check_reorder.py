@@ -51,6 +51,7 @@ def main(current_task, input_data):
         # Calculate safety stock and reorder points
         dataset = calculate_safety_stock(dataset)
         dataset = calculate_reorder_point(dataset, dataset['safety_stock'])
+        dataset.to_feather("/Users/skylerwilson/Desktop/PartsWise/Data/Processed/parts_data.feather")
         logging.info(f"Length of reorder JSON file: {len(dataset)} rows")
         
         json_data = dataset.to_json(orient='split')

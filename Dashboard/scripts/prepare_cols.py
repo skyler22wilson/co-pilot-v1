@@ -15,6 +15,21 @@ LOGGING_DIR = "Logs"
 
 def calculate_rolling_12_month_sales(df):
     print('Calculate 12 month rolling')
+    """
+    Calculate the rolling 12-month sales for each part in the DataFrame.
+
+    This function computes the sum of sales over the last 12 months for each part.
+    The sales columns are dynamically determined based on the current month.
+
+    Args:
+        df (pd.DataFrame): DataFrame containing the sales data with columns 
+                           named in the format 'sales_{month_abbr}' for current year
+                           and 'sales_last_{month_abbr}' for last year.
+
+    Returns:
+        pd.DataFrame: DataFrame with an additional column 'rolling_12_month_sales'
+                      representing the rolling 12-month sales for each part.
+    """
     now = datetime.now()
     current_month = now.month - 1 # February is the last completed month (2)
 
@@ -39,6 +54,21 @@ def calculate_rolling_12_month_sales(df):
     return df
 
 def calculate_3_month_rolling_sales(df):
+    """
+    Calculate the rolling 3-month sales for each part in the DataFrame.
+
+    This function computes the sum of sales over the last 3 months for each part.
+    The sales columns are dynamically determined based on the current month.
+
+    Args:
+        df (pd.DataFrame): DataFrame containing the sales data with columns 
+                           named in the format 'sales_{month_abbr}' for current year
+                           and 'sales_last_{month_abbr}' for last year.
+
+    Returns:
+        pd.DataFrame: DataFrame with an additional column 'rolling_3_month_sales'
+                      representing the rolling 3-month sales for each part.
+    """
     print('Calculating 3 month rolling sales')
     # Get the current month, adjusted for having only completed data through February
     current_month = datetime.now().month - 3  
@@ -61,6 +91,19 @@ def calculate_3_month_rolling_sales(df):
     return df
 
 def current_month_sales(df):
+    """
+    Calculate the current month's sales for a 30-day supply.
+
+    This function retrieves sales data for the current month and calculates the sales
+    for a 30-day supply period based on the available data.
+
+    Args:
+        df (pd.DataFrame): DataFrame containing the sales data with columns 
+                           named in the format 'sales_{month_abbr}' for current year.
+
+    Returns:
+        pd.Series: Series containing sales data for the current month.
+    """
     print('Calculating current month sales for 30 days supply...')
     current_month = datetime.now().month
     this_year_sales_columns = [f'sales_{calendar.month_abbr[i].lower()}' for i in range(1, current_month + 1)]
@@ -68,40 +111,138 @@ def current_month_sales(df):
     return this_month_sales
 
 def calculate_unit_cost(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Calculate the unit cost for each part.
+
+    This function computes the cost per unit by subtracting the margin from the price
+    for each part.
+
+    Args:
+        df (pd.DataFrame): DataFrame containing the price and margin data.
+
+    Returns:
+        pd.DataFrame: DataFrame with an additional column 'cost_per_unit'.
+    """
     df['cost_per_unit'] = np.round(df['price'] - df['margin'], 2)
     return df
 
 def calculate_total_cost(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Calculate the total cost for each part.
+
+    This function computes the total cost by multiplying the cost per unit by the quantity
+    for each part.
+
+    Args:
+        df (pd.DataFrame): DataFrame containing the cost per unit and quantity data.
+
+    Returns:
+        pd.DataFrame: DataFrame with an additional column 'total_cost'.
+    """
     df['total_cost'] = np.round(df['cost_per_unit'] * df['quantity'], 2)
     return df
 
 def calculate_sales_revenue(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Calculate the sales revenue for each part.
+
+    This function computes the sales revenue by multiplying the rolling 12-month sales
+    by the price for each part.
+
+    Args:
+        df (pd.DataFrame): DataFrame containing the rolling 12-month sales and price data.
+
+    Returns:
+        pd.DataFrame: DataFrame with an additional column 'sales_revenue'.
+    """
     df['sales_revenue'] = np.round(df['rolling_12_month_sales'] * df['price'], 2)
     return df
 
 def calculate_cogs(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Calculate the cost of goods sold (COGS) for each part.
+
+    This function computes the COGS by multiplying the rolling 12-month sales
+    by the cost per unit for each part.
+
+    Args:
+        df (pd.DataFrame): DataFrame containing the rolling 12-month sales and cost per unit data.
+
+    Returns:
+        pd.DataFrame: DataFrame with an additional column 'cogs'.
+    """
     df['cogs'] = np.round(df['rolling_12_month_sales'] * df['cost_per_unit'], 2)
     return df
 
 def calculate_margin(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Calculate the margin and margin percentage for each part.
+
+    This function computes the margin by subtracting the cost per unit from the price,
+    and calculates the margin percentage.
+
+    Args:
+        df (pd.DataFrame): DataFrame containing the price and cost per unit data.
+
+    Returns:
+        pd.DataFrame: DataFrame with additional columns 'margin_percentage' and 'margin'.
+    """
     df['margin_percentage'] = np.round(((df['price'] - df['cost_per_unit']) / df['price']) * 100, 2)
-    df['margin'] = np.round(df['margin'], 2)
+    df['margin'] = np.round(df['price'] - df['cost_per_unit'], 2)
     return df
 
 def compute_gross_profit(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Compute the gross profit for each part.
+
+    This function calculates the gross profit by multiplying the difference between
+    the price and cost per unit by the rolling 12-month sales.
+
+    Args:
+        df (pd.DataFrame): DataFrame containing the price, cost per unit, and rolling 12-month sales data.
+
+    Returns:
+        pd.DataFrame: DataFrame with an additional column 'gross_profit'.
+    """
     df['gross_profit'] = np.round((df['price'] - df['cost_per_unit']) * df['rolling_12_month_sales'], 2)
     return df
 
 def calc_roi(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Calculate the return on investment (ROI) for each part.
+
+    This function computes the ROI by dividing the difference between gross profit
+    and total cost by the total cost, and then converting it to a percentage.
+
+    Args:
+        df (pd.DataFrame): DataFrame containing the gross profit and total cost data.
+
+    Returns:
+        pd.DataFrame: DataFrame with an additional column 'roi'.
+    """
     df['roi'] = np.where(df['total_cost'] != 0,
                          np.round(((df['gross_profit'] - df['total_cost']) / df['total_cost']) * 100, 2), 0) 
     return df
 
 def calculate_day_supply(df):
+    """
+    Calculate the days' supply of inventory based on average daily sales.
+
+    This function computes the days' supply of inventory for each part over three different periods:
+    12 months, 3 months, and 1 month. It calculates the average daily sales for each period and 
+    then determines the days' supply by dividing the quantity of each part by the average daily sales.
+
+    Args:
+        df (pd.DataFrame): DataFrame containing inventory and sales data with columns for rolling 
+                           12-month sales, rolling 3-month sales, and current month sales.
+
+    Returns:
+        pd.DataFrame: DataFrame with additional columns for annual, three-month, and one-month days' supply.
+    """
     # Calculate average daily sales over 12 months and 3 months
     avg_daily_sales_12mo = df['rolling_12_month_sales'] / 360
     avg_daily_sales_3mo = df['rolling_3_month_sales'] / 90
-    avg_daily_sales_1mo =  current_month_sales(df) / 30
+    avg_daily_sales_1mo = current_month_sales(df) / 30
     
     # Calculate days' supply for 12 months
     df['annual_days_supply'] = df['quantity'] / avg_daily_sales_12mo
@@ -110,7 +251,7 @@ def calculate_day_supply(df):
     
     # Calculate days' supply for 3 months
     df['three_month_days_supply'] = df['quantity'] / avg_daily_sales_3mo
-    df['three_month_supply'] = df['three_month_days_supply'].replace([np.inf, -np.inf], np.nan).fillna(0)
+    df['three_month_days_supply'] = df['three_month_days_supply'].replace([np.inf, -np.inf], np.nan).fillna(0)
     df['three_month_days_supply'] = np.round(df['three_month_days_supply'], 0)
 
     # Calculate days' supply for 1 month
@@ -121,11 +262,25 @@ def calculate_day_supply(df):
     return df
 
 def calculate_turnover(df):
+    """
+    Calculate the inventory turnover ratio based on days' supply.
+
+    This function computes the turnover ratio for each part over three different periods:
+    12 months, 3 months, and 1 month. It calculates the turnover ratio by dividing the number of days in 
+    each period by the corresponding days' supply.
+
+    Args:
+        df (pd.DataFrame): DataFrame containing inventory data with columns for annual, three-month,
+                           and one-month days' supply.
+
+    Returns:
+        pd.DataFrame: DataFrame with additional columns for annual, three-month, and one-month turnover ratios.
+    """
     # Calculate annual turnover using 365 days' supply
     if 'annual_days_supply' in df.columns:
-        df['annual_month_turnover'] = 365 / df['annual_days_supply']
-        df['annual_month_turnover'] = df['annual_month_turnover'].replace([np.inf, -np.inf], np.nan).fillna(0)
-        df['annual_month_turnover'] = np.round(df['annual_month_turnover'], 1)
+        df['annual_turnover'] = 360 / df['annual_days_supply']
+        df['annual_turnover'] = df['annual_turnover'].replace([np.inf, -np.inf], np.nan).fillna(0)
+        df['annual_turnover'] = np.round(df['annual_turnover'], 1)
     else:
         logging.error("Annual days' supply data is missing")
 
@@ -135,7 +290,7 @@ def calculate_turnover(df):
         df['three_month_turnover'] = df['three_month_turnover'].replace([np.inf, -np.inf], np.nan).fillna(0)
         df['three_month_turnover'] = np.round(df['three_month_turnover'], 1)
     else:
-        logging.error("three_month days' supply data is missing")
+        logging.error("Three-month days' supply data is missing")
 
     # Calculate 30-day turnover using 30 days' supply
     if 'one_month_days_supply' in df.columns:
@@ -143,11 +298,26 @@ def calculate_turnover(df):
         df['one_month_turnover'] = df['one_month_turnover'].replace([np.inf, -np.inf], np.nan).fillna(0)
         df['one_month_turnover'] = np.round(df['one_month_turnover'], 1)
     else:
-        logging.error("one_month days' supply data is missing")
+        logging.error("One-month days' supply data is missing")
 
     return df
 
+
 def sales_2_stock(df):
+    """
+    Calculate the sales-to-stock ratio for each part.
+
+    This function computes the sales-to-stock ratio by dividing the rolling 12-month sales by the quantity 
+    in stock for each part. If the 'rolling_12_month_sales' column is missing, an error is logged, and the 
+    DataFrame is returned unchanged.
+
+    Args:
+        df (pd.DataFrame): DataFrame containing inventory and sales data, including columns for 
+                           'rolling_12_month_sales' and 'quantity'.
+
+    Returns:
+        pd.DataFrame: DataFrame with an additional column for the sales-to-stock ratio.
+    """
     if 'rolling_12_month_sales' not in df.columns:
         logging.error("'rolling_12_month_sales' column is missing.")
         return df 
@@ -155,14 +325,45 @@ def sales_2_stock(df):
     return df
 
 def order_2_sales(df):
+    """
+    Calculate the order-to-sales ratio for each part.
+
+    This function computes the order-to-sales ratio by dividing the year-to-date quantity ordered 
+    by the rolling 12-month sales for each part. If the 'rolling_12_month_sales' column is missing, 
+    an error is logged, and the DataFrame is returned unchanged.
+
+    Args:
+        df (pd.DataFrame): DataFrame containing inventory and sales data, including columns for 
+                           'rolling_12_month_sales' and 'quantity_ordered_ytd'.
+
+    Returns:
+        pd.DataFrame: DataFrame with an additional column for the order-to-sales ratio.
+    """
     if 'rolling_12_month_sales' not in df.columns:
         logging.error("'rolling_12_month_sales' column is missing.")
         return df 
     df["order_to_sales_ratio"] = np.where(df['rolling_12_month_sales'] > 0, df['quantity_ordered_ytd'] / df['rolling_12_month_sales'], 0)
-
     return df
 
+
 def prepare_and_melt_sales_data(df):
+    """
+    Prepare and melt sales data from wide to long format.
+
+    This function processes a DataFrame containing monthly sales data for two consecutive years. It separates the data for
+    the current year and the previous year, melts them into a long format, and then combines the results into a single
+    DataFrame. The function also removes the original monthly sales columns from the input DataFrame.
+
+    Args:
+        df (pd.DataFrame): Input DataFrame containing sales data for the current and previous years. The DataFrame should
+                           include columns named 'sales_<month_abbr>' for the current year's sales and 'sales_last_<month_abbr>'
+                           for the previous year's sales.
+
+    Returns:
+        tuple: A tuple containing:
+            - pd.DataFrame: The original DataFrame with the monthly sales columns removed.
+            - pd.DataFrame: The melted DataFrame with columns for 'part_number', 'month', 'quantity_sold', and 'year'.
+    """
     # Make a copy of the original DataFrame
     df_copy = df.copy()
 
@@ -196,6 +397,22 @@ def prepare_and_melt_sales_data(df):
     return df, df_melted_sales
 
 def extract_seasonal_component(sales_data, time_column, value_column, top_n_freq=1):
+    """
+    Extract the seasonal component from sales data using Fast Fourier Transform (FFT).
+
+    This function identifies the dominant seasonal components in the sales data by applying FFT. It converts month names
+    to numerical representations if necessary, sorts the data by the time column, and then computes the FFT. The top
+    frequencies are identified, and their corresponding amplitudes and phases are used to calculate the seasonal component.
+
+    Args:
+        sales_data (pd.DataFrame): DataFrame containing sales data with time and value columns.
+        time_column (str): Name of the column representing time (months).
+        value_column (str): Name of the column representing sales values.
+        top_n_freq (int): Number of top frequencies to consider for the seasonal component.
+
+    Returns:
+        float: The mean of the seasonal component calculated from the dominant frequencies.
+    """
     # Efficiently convert month names to numbers if necessary
     if sales_data[time_column].dtype == object:
         month_to_num = {month: index for index, month in enumerate(calendar.month_name[1:], start=1)}
@@ -282,6 +499,7 @@ def main(current_task, input_data):
         else:
             # Merge seasonal components back to the original DataFrame
             parts_data_with_seasonal = parts_data_final.merge(seasonal_components, on='part_number', how='left')
+            parts_data_with_seasonal.to_feather("/Users/skylerwilson/Desktop/PartsWise/Data/Processed/parts_data.feather")
 
         # Save the DataFrame with seasonal components to output_data
         parts_data_with_seasonal = parts_data_with_seasonal.to_json(orient='split')

@@ -18,6 +18,30 @@ def load_config(config_file):
 
 
 def calculate_demand_score(df, feature_importances_df):
+    """
+    Calculate the demand score for each item in the DataFrame based on feature importances.
+
+    This function calculates a demand score for each item in the DataFrame by using the feature importances provided. 
+    The demand score is a weighted sum of the relevant features, normalized by ranking for non-obsolete items.
+
+    Args:
+        df (pd.DataFrame): The input DataFrame containing the data for which the demand score is to be calculated.
+        feature_importances_df (pd.DataFrame): DataFrame containing feature importances with columns 'feature' and 'scaled_importance'.
+
+    Returns:
+        pd.DataFrame: The input DataFrame with an additional 'demand' column representing the calculated demand score for each item.
+
+    Raises:
+        ValueError: If the 'scaled_importance' or 'feature' columns are missing in the feature_importances_df.
+
+    Steps:
+        1. Validate that the feature importances DataFrame contains the necessary columns ('scaled_importance' and 'feature').
+        2. Map the feature importances to a dictionary for easy access.
+        3. Identify the relevant feature columns in the input DataFrame that correspond to the feature importances.
+        4. Calculate the demand score for each item by applying a weighted sum of the relevant features.
+        5. Set the demand score to 0 for items that are considered obsolete (items with 'months_no_sale' >= 12).
+        6. Normalize the demand score for non-obsolete items by ranking the scores on a percentile basis.
+    """
     # Ensure that the feature importances DataFrame has the necessary columns
     if 'scaled_importance' not in feature_importances_df.columns or 'feature' not in feature_importances_df.columns:
         logging.error("'scaled_importance' or 'feature' column is missing in the feature_importances_df.")

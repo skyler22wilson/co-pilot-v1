@@ -17,7 +17,7 @@ def preprocess_dataframe(df, rename_map=None, drop_cols=None):
         df.drop(columns=drop_cols, inplace=True, errors='ignore')
     return df
 
-def insert_data_using_pandas(engine, table_name, data_df, if_exists='append', method='multi', chunksize=5000):
+def insert_data_using_pandas(engine, table_name, data_df, if_exists='append', method='multi', chunksize=7500):
     """
     Inserts data from a Pandas DataFrame into a SQL table using the Pandas .to_sql method.
     

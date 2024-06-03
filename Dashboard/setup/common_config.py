@@ -25,7 +25,7 @@ def calculate_combined_metrics(conn):
     SELECT 
         SUM(p.sales_revenue) AS sales_revenue,
         SUM(p.cost_per_unit * s.quantity_sold) as cogs
-        AVG(p._12_month_turnover) as turnover
+        AVG(p.annual_turnover) as turnover
     FROM parts
     JOIN sales s ON s.part_number = p.part_number;
     """
@@ -125,7 +125,7 @@ def calculate_financial_metrics(conn):
     query = f"""
     SELECT 
         SUM(p.cost) AS total_cost,
-        AVG(p._12_month_turnover) AS average_turnover,
+        AVG(p.annual_turnover) AS average_turnover,
         (
             SELECT SUM(p.price * s.quantity_sold)
             FROM sales s
