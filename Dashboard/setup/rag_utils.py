@@ -85,7 +85,7 @@ def setup_nlsql_query_engine():
     context_str = (
         "Inventory categories: essential, non-essential, nearing obsolescence, obsolete. "
         "Ensure detailed, relevant responses, including 'supplier_name', 'price', and 'quantity'. "
-        "Always use lowercase for ALL queries. Access 'supplier_name' flexibly e.g., ('%bmw'). "
+        "Access 'supplier_name' flexibly e.g., ('%bmw'). "
         "Convert percentages to decimals (e.g., '50%' as '0.5'). "
         "Use JOINs prefaced with table names for combining multiple tables."
     )
@@ -118,10 +118,11 @@ def process_user_input_to_sql(user_input):
         str: Generated SQL query.
     """
     response = query_engine.query(user_input)
-    sql_query = response.metadata['sql_query'].replace('\n', ' ').strip()
-    if sql_query.lower().startswith('sql'):
-        sql_query = sql_query[3:].strip()  # Remove the incorrect 'sql' prefix if it exists
+    sql_query = response.metadata.get('sql_query', '').replace('\n', ' ').replace('\r', ' ').strip().lower()
+    if sql_query.startswith('sql'):
+        sql_query = sql_query[3:].strip()
     return sql_query
+
 
 def query_output(user_input):
     """
@@ -140,7 +141,7 @@ def query_output(user_input):
         if len(result_df) >= 5:
             return html.Div(create_table(result_df), className='table-container'), True
         else:
-            response = query_engine.query(user_input)
+            response = query_engine.query(sql_query)
             return html.Div(str(response), className='partswise-output-text'), False
 
         
