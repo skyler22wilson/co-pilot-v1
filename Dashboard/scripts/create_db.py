@@ -19,11 +19,6 @@ class Parts(Base):
     special_orders_ytd = Column(Integer)
     negative_on_hand = Column(Integer)
     cost_per_unit = Column(Integer)
-    cost = Column(Float)
-    sales_revenue = Column(Float)
-    cogs = Column(Float)
-    margin_percentage = Column(Float)
-    gross_profit = Column(Float)
     roi = Column(Float, index=True)
     annual_days_supply = Column(Float)
     three_month_days_supply = Column(Float)
@@ -49,6 +44,30 @@ class Parts(Base):
         Index('idx_supplier_name_inventory_category', 'supplier_name', 'inventory_category'),
         Index('idx_supplier_name_obsolescence_risk', 'supplier_name', 'obsolescence_risk')
     )
+
+    @property
+    def gross_profit(self):
+        total_quantity_sold = sum([sale.quantity_sold for sale in self.sales])
+        return total_quantity_sold * (self.price - self.cost_per_unit)
+
+    @property
+    def cogs(self):
+        total_quantity_sold = sum([sale.quantity_sold for sale in self.sales])
+        return total_quantity_sold * self.cost_per_unit
+
+    @property
+    def cost(self):
+        return self.price - self.cogs
+
+    @property
+    def margin_percentage(self):
+        total_revenue = self.price * sum([sale.quantity_sold for sale in self.sales])
+        return (self.gross_profit / total_revenue) * 100
+
+    @property
+    def sales_revenue(self):
+        total_revenue = self.price * sum([sale.quantity_sold for sale in self.sales])
+        return total_revenue
 
 class Sales(Base):
     __tablename__ = 'sales'
