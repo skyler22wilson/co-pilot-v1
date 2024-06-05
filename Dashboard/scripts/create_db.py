@@ -1,5 +1,6 @@
-from sqlalchemy import create_engine, Column, Integer, String, Float, ForeignKey, UniqueConstraint, DECIMAL, Index
+from sqlalchemy import create_engine, Column, Integer, String, Float, ForeignKey, UniqueConstraint, Index
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship
 import os
 import logging
@@ -13,12 +14,11 @@ class Parts(Base):
     supplier_name = Column(String, index=True)
     quantity = Column(Integer)
     price = Column(Float)
-    margin = Column(Float)
+    cost_per_unit = Column(Integer)
     months_no_sale = Column(Integer)
     quantity_ordered_ytd = Column(Integer)
     special_orders_ytd = Column(Integer)
     negative_on_hand = Column(Integer)
-    cost_per_unit = Column(Integer)
     roi = Column(Float, index=True)
     annual_days_supply = Column(Float)
     three_month_days_supply = Column(Float)
@@ -33,10 +33,9 @@ class Parts(Base):
     demand = Column(Float)
     inventory_category = Column(String, index=True)
     obsolescence_risk = Column(Float, index=True)
-    supplier_id = Column(String, ForeignKey('supplier_parts_summary.supplier_id', ondelete='CASCADE', onupdate='CASCADE'))
+    sales_id = Column(String, ForeignKey('sales.id', ondelete='CASCADE', onupdate='CASCADE'))
 
     sales = relationship('Sales', back_populates='parts')
-    supplier_parts_summary = relationship('SupplierPartsSummary', back_populates='parts')
 
     __table_args__ = (
         Index('idx_supplier_name_part_number', 'supplier_name', 'part_number'),
@@ -45,26 +44,26 @@ class Parts(Base):
         Index('idx_supplier_name_obsolescence_risk', 'supplier_name', 'obsolescence_risk')
     )
 
-    @property
+    @hybrid_property
     def gross_profit(self):
         total_quantity_sold = sum([sale.quantity_sold for sale in self.sales])
         return total_quantity_sold * (self.price - self.cost_per_unit)
 
-    @property
+    @hybrid_property
     def cogs(self):
         total_quantity_sold = sum([sale.quantity_sold for sale in self.sales])
         return total_quantity_sold * self.cost_per_unit
 
-    @property
+    @hybrid_property
     def cost(self):
         return self.price - self.cogs
 
-    @property
+    @hybrid_property
     def margin_percentage(self):
         total_revenue = self.price * sum([sale.quantity_sold for sale in self.sales])
         return (self.gross_profit / total_revenue) * 100
 
-    @property
+    @hybrid_property
     def sales_revenue(self):
         total_revenue = self.price * sum([sale.quantity_sold for sale in self.sales])
         return total_revenue
@@ -81,54 +80,6 @@ class Sales(Base):
 
     parts = relationship('Parts', back_populates='sales')
 
-
-class SupplierPartsSummary(Base):
-    __tablename__ = 'supplier_parts_summary'
-    supplier_id = Column(String, primary_key=True)
-    supplier_name = Column(String, index=True)  # Direct index on supplier_name
-    total_quantity = Column(Integer)
-    total_negative_on_hand = Column(Integer)
-    total_cost = Column(DECIMAL)
-    average_margin = Column(DECIMAL)
-    total_sales_revenue = Column(DECIMAL)
-    total_cogs = Column(DECIMAL)
-    total_gross_profit = Column(DECIMAL)
-    average_turnover = Column(DECIMAL)
-    average_days_supply = Column(DECIMAL)
-    average_months_no_sale = Column(Integer)
-    average_obsolescence_risk = Column(DECIMAL)
-    average_demand = Column(DECIMAL)
-    
-
-    # Composite indexes
-    __table_args__ = (
-        Index('idx_supplier_name_total_quantity', 'supplier_name', 'total_quantity'),
-        Index('idx_supplier_name_total_negative_on_hand', 'supplier_name', 'total_negative_on_hand'),
-        Index('idx_supplier_name_total_cost', 'supplier_name', 'total_cost'),
-        Index('idx_supplier_name_total_sales_revenue', 'supplier_name', 'total_sales_revenue'),
-        Index('idx_supplier_name_total_gross_profit', 'supplier_name', 'total_gross_profit'),
-        Index('idx_supplier_name_average_turnover', 'supplier_name', 'average_turnover'),
-        Index('idx_supplier_name_average_obsolescence_risk', 'supplier_name', 'average_obsolescence_risk')
-    )
-
-    parts = relationship('Parts', back_populates='supplier_parts_summary')
-    sales_summary = relationship('SupplierSalesSummary', back_populates='supplier')
-
-
-class SupplierSalesSummary(Base):
-    __tablename__ = 'supplier_sales_summary'
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    supplier_name = Column(String, index=True)
-    year = Column(Integer)
-    month = Column(String)
-    quantity_sold = Column(Integer)
-    supplier_id = Column(String, ForeignKey('supplier_parts_summary.supplier_id', ondelete='CASCADE', onupdate='CASCADE'))
-    __table_args__ = (
-        UniqueConstraint('supplier_id', 'month', 'year', name='unique_supplier_sales'),
-        Index('idx_month_year_summary', 'month', 'year')
-    )
-
-    supplier = relationship('SupplierPartsSummary', back_populates='sales_summary')
 
 # Function to create the schema using SQLAlchemy
 def generate_db_file_path(user_identifier='island_moto'):

@@ -38,18 +38,14 @@ def setup_nlsql_query_engine():
             tuple: A tuple containing the SQLDatabase object, a list of SQLTableSchema objects,
                    and an ObjectIndex object.
         """
-        sql_database = SQLDatabase(engine, sample_rows_in_table_info=2, include_tables=['sales', 'supplier_parts_summary', 'parts', 'supplier_sales_summary'])
+        sql_database = SQLDatabase(engine, sample_rows_in_table_info=2, include_tables=['sales', 'parts'])
         parts_context = "Provides detailed inventory data for individual parts. Use part-specific queries. Combine with 'sales' tables for temporal financial performance."
         sales_context = "Provides time-based sales data for individual parts. Use for part-specific sales queries."
-        supplier_parts_context = "Provides key inventory data for each supplier/brand. Use for supplier/brand-specific financial data queries. Combine with 'supplier_sales_summary' tables for temporal financial performance."
-        supplier_sales_context = "Provides time-based sales data for each supplier/brand. Use for supplier/brand-specific sales queries."
 
         table_node_mapping = SQLTableNodeMapping(sql_database)
         table_schema_objs = [
             SQLTableSchema(table_name='sales', context_str=sales_context),
-            SQLTableSchema(table_name='supplier_parts_summary', context_str=supplier_parts_context),
             SQLTableSchema(table_name='parts', context_str=parts_context),
-            SQLTableSchema(table_name='supplier_sales_summary', context_str=supplier_sales_context)
         ]
         obj_index = ObjectIndex.from_objects(
             table_schema_objs,
@@ -83,11 +79,13 @@ def setup_nlsql_query_engine():
     table_context_str = get_table_context_str(sql_database, table_schema_objs)
 
     context_str = (
-        "Inventory categories: essential, non-essential, nearing obsolescence, obsolete. "
-        "Ensure detailed, relevant responses, including 'supplier_name', 'price', and 'quantity'. "
-        "Access 'supplier_name' flexibly e.g., ('%bmw'). "
-        "Convert percentages to decimals (e.g., '50%' as '0.5'). "
-        "Use JOINs prefaced with table names for combining multiple tables."
+    "Inventory categories: essential, non-essential, nearing obsolescence, obsolete. "
+    "Ensure detailed, relevant responses, including 'supplier_name', 'price', and 'quantity'. "
+    "Access 'supplier_name' flexibly e.g., ('%bmw'). "
+    "Convert percentages to decimals (e.g., '50%' as '0.5'). "
+    "Use JOINs prefaced with table names for combining multiple tables. "
+    "Calculate COGS as the sum of costs directly associated with goods sold. "
+    "Calculate Gross Margin Percentage/Gross Margin as (Sales Revenue - COGS) / Sales Revenue * 100."
     )
 
     context_str_combined = context_str + "\n\n" + table_context_str
