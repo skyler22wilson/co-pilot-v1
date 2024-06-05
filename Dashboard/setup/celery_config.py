@@ -1,5 +1,4 @@
-from celery import Celery
-from celery import chord, group, chain
+from celery import Celery, chord, group, chain
 from Dashboard.scripts.data_clean import main as data_clean
 from Dashboard.scripts.prepare_cols import main as column_preperation
 from Dashboard.scripts.feature_importances import main as calculate_features
@@ -8,8 +7,6 @@ from Dashboard.scripts.create_categories import main as create_categories
 from Dashboard.scripts.check_reorder import main as calculate_reorder
 from Dashboard.Models.obsolecence_predictor.obsolete_predictor import main as obsolescence_risk
 from Dashboard.scripts.monthly_sales import main as monthly_sales
-from Dashboard.scripts.brand_parts_summary import main as brand_parts_summary
-from Dashboard.scripts.brand_sales_summary import main as brand_sales_summary
 from Dashboard.scripts.parts_data import main as get_parts_data
 from Dashboard.scripts.db_setup import main as build_database
 from functools import reduce
@@ -109,15 +106,6 @@ def monthly_sales_task(self, input_data):
     result = monthly_sales(self, input_data)
     return result
 
-@app.task(bind=True)
-def brand_parts_summary_task(self, input_data):
-    result = brand_parts_summary(self, input_data)
-    return result
-
-@app.task(bind=True)
-def brand_sales_summary_task(self, input_data):
-    result = brand_sales_summary(self, input_data)
-    return result
 
 @app.task(bind=True)
 def parts_data_task(self, input_data):
@@ -127,19 +115,15 @@ def parts_data_task(self, input_data):
 @app.task(bind=True)
 def combine_datasets(self, results):
     """Combine all results into a single dictionary."""
-    parts_data, monthly_sales, brand_parts_summary, brand_sales_summary = results
+    parts_data, monthly_sales = results
             
     # Parse each result from JSON to a dictionary
     parts_data = json.loads(parts_data)
     monthly_sales = json.loads(monthly_sales)
-    brand_parts_summary = json.loads(brand_parts_summary)
-    brand_sales_summary = json.loads(brand_sales_summary)
 
     combined_data = {
         "parts_data": parts_data,
         "monthly_sales": monthly_sales,
-        "brand_parts_summary": brand_parts_summary,
-        "brand_sales_summary": brand_sales_summary
     }
 
     return combined_data
@@ -174,8 +158,6 @@ def start_pipeline(self, data):
         group(
             parts_data_task.s(),
             monthly_sales_task.s(),
-            brand_parts_summary_task.s(),
-            brand_sales_summary_task.s(),
         ),
         combine_datasets.s() 
     )
