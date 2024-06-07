@@ -40,7 +40,11 @@ def prepare_and_melt_sales_data(df, config):
     # Combine the melted data for both years
     df_melted_sales = pd.concat([df_this_year, df_last_year], ignore_index=True)
 
+    df_melted_sales['month'] = pd.Categorical(df_melted_sales['month'], categories=[calendar.month_name[i].lower() for i in range(1, 13)], ordered=True)
+    df_melted_sales = df_melted_sales.sort_values(['year', 'month'])
+
     return df_melted_sales
+
 
 def load_configuration(config_path):
     if not os.path.exists(config_path):
