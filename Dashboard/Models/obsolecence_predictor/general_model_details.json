@@ -7,7 +7,7 @@
         "seasonal_component"
     ],
     "best_hyperparameters": {
-        "n_estimators": 500,
+        "n_estimators": 200,
         "min_samples_split": 15,
         "min_samples_leaf": 5,
         "max_features": "log2",
