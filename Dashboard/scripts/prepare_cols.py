@@ -499,7 +499,6 @@ def main(current_task, input_data):
         else:
             # Merge seasonal components back to the original DataFrame
             parts_data_with_seasonal = parts_data_final.merge(seasonal_components, on='part_number', how='left')
-            parts_data_with_seasonal.to_feather("/Users/skylerwilson/Desktop/PartsWise/Data/Processed/parts_data.feather")
 
         # Save the DataFrame with seasonal components to output_data
         parts_data_with_seasonal = parts_data_with_seasonal.to_json(orient='split')

@@ -78,7 +78,7 @@ def main(current_task, input_data):
         dataset = pd.DataFrame(original_data['data'], columns=original_data['columns'])
         df_melted_sales= prepare_and_melt_sales_data(dataset, config)
         
-        output_file_path = "/Users/skylerwilson/Desktop/PartsWise/Data/Output/sales_data.feather"
+        output_file_path = "/Users/skylerwilson/Desktop/PartsWise/co-pilot-v1/data/output_data/sales_data.feather"
         
         df_melted_sales.to_feather(output_file_path)
         print("Feather file saved successfully.")

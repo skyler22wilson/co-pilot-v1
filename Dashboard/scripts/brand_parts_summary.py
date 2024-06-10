@@ -59,7 +59,7 @@ def main(current_task, input_data):
 
         # Generate summary parts table
         parts_summary_df = create_summary_parts_table(dataset)
-        parts_summary_df_path = "/Users/skylerwilson/Desktop/PartsWise/Data/Processed/parts_summary.feather"
+        parts_summary_df_path = "/Users/skylerwilson/Desktop/PartsWise/co-pilot-v1/data/processed_data/parts_summary.feather"
         parts_summary_df.to_feather(parts_summary_df_path)
         logging.info("Parts summary table saved successfully.")
 

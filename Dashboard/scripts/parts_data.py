@@ -49,7 +49,7 @@ def parts_data_task(input_data, config):
         non_sales_data = filter_non_sales_columns(dataset, config)
 
         # Save to a feather file if needed
-        output_file_path = "/Users/skylerwilson/Desktop/PartsWise/Data/Output/parts_data.feather"
+        output_file_path = "/Users/skylerwilson/Desktop/PartsWise/co-pilot-v1/data/output_data/parts_data.feather"
         non_sales_data.to_feather(output_file_path)
         print("Parts feather file saved successfully.")
 

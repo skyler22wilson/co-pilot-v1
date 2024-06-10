@@ -82,9 +82,6 @@ def main(current_task, input_data):
         logging.debug('Calculating obsolescence risk.')
         df = calculate_obsolescence_risk(df)
 
-        df.to_feather("/Users/skylerwilson/Desktop/PartsWise/Data/Processed/parts_data_obsrisk.feather")
-        logging.info(f"Length of obsolescence risk JSON file: {len(df)} rows")
-
         json_dataset = df.to_json(orient='split')
         logging.info('Obsolescence risk calculation completed successfully.')
         return json_dataset
