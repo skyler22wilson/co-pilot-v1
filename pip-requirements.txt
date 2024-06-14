@@ -11,4 +11,6 @@ python-engineio==4.9.0
 python-socketio==5.11.1
 redis==5.0.4
 xmljson==0.2.0
+llama-index-readers-smart-pdf-loader
+llmsherpa
 
