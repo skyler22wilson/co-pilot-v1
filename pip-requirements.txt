@@ -13,4 +13,5 @@ redis==5.0.4
 xmljson==0.2.0
 llama-index-readers-smart-pdf-loader
 llmsherpa
-
+llama_index.embeddings.huggingface
+llama_index.indices.document_summary 
