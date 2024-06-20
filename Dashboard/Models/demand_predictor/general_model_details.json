@@ -1,24 +1,29 @@
 {
     "selected_features": [
+        "quantity",
+        "margin",
         "months_no_sale",
         "special_orders_ytd",
         "rolling_3_month_sales",
-        "cost_per_unit",
         "margin_percentage",
         "gross_profit",
+        "roi",
+        "three_month_days_supply",
+        "sell_through_rate",
+        "days_of_inventory_outstanding",
         "seasonal_component"
     ],
     "best_hyperparameters": {
-        "colsample_bytree": 0.8789632642627835,
-        "gamma": 0.2631301838167067,
-        "huber_slope": 0.2998909278382967,
-        "learning_rate": 0.04319768621363935,
-        "max_delta_step": 9,
-        "max_depth": 10,
+        "colsample_bytree": 0.833551744463297,
+        "gamma": 0.3082653641159969,
+        "huber_slope": 0.2999915757897506,
+        "learning_rate": 0.04990601581902536,
+        "max_delta_step": 7,
+        "max_depth": 14,
         "min_child_weight": 3,
-        "n_estimators": 660,
-        "reg_alpha": 0.01021238762847951,
-        "reg_lambda": 1.9486025674605827,
-        "subsample": 0.7354847996384664
+        "n_estimators": 670,
+        "reg_alpha": 0.0018203410823982183,
+        "reg_lambda": 1.4950871825001473,
+        "subsample": 0.9997175613447699
     }
 }
