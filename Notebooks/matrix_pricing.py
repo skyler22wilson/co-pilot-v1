@@ -70,7 +70,7 @@ def main(current_task, input_data):
     try:
         original_data = json.loads(input_data)
         df = pd.DataFrame(original_data['data'], columns=original_data['columns'])
-        df.to_feather("/Users/skylerwilson/Desktop/PartsWise/co-pilot-v1/data/processed_data/parts_data.feather")
+        df.to_feather("/Users/skylerwilson/Desktop/PartsWise/Data/Processed/parts_data_obsrisk.feather")
         updated_df = matrix_pricing(df)
         json_data = updated_df.to_json(orient='split')
 
