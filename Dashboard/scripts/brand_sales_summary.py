@@ -109,7 +109,7 @@ def main(current_task, input_data):
 
         # Generate sales data by supplier
         sales_summary_df = sales_data_by_supplier(dataset, config)
-        sales_summary_df_path = "/Users/skylerwilson/Desktop/PartsWise/Data/Processed/sales_summary.feather"
+        sales_summary_df_path = "/Users/skylerwilson/Desktop/PartsWise/co-pilot-v1/data/processed_data/sales_summary.feather"
         sales_summary_df.to_feather(sales_summary_df_path)
         logging.info("Sales summary table saved successfully.")
 

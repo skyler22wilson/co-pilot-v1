@@ -96,7 +96,7 @@ def main(current_task, input_data):
         print("Calculating demand score adjustment based on feature importances...")
         df_adjusted = calculate_demand_score(parts_data, feature_importances_df)
         print("Demand score adjustment completed successfully.")
-        df_adjusted.to_feather("/Users/skylerwilson/Desktop/PartsWise/Data/Processed/parts_data.feather")
+        df_adjusted.to_feather("/Users/skylerwilson/Desktop/PartsWise/co-pilot-v1/data/processed_data/parts_data.feather")
 
         # Save the adjusted dataframe
         if df_adjusted is not None:

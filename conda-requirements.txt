@@ -17,4 +17,5 @@ xgboost
 pyarrow
 matplotlib
 plotly
+pdfplumber
 

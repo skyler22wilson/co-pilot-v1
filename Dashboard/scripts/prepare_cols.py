@@ -31,7 +31,7 @@ def calculate_rolling_12_month_sales(df):
                       representing the rolling 12-month sales for each part.
     """
     now = datetime.now()
-    current_month = now.month - 1 # February is the last completed month (2)
+    current_month = 2 #now.month - 1 # February is the last completed month (2)
 
     # Create lists to hold sales columns from the last 12 months
     if current_month == 1:
@@ -71,7 +71,7 @@ def calculate_3_month_rolling_sales(df):
     """
     print('Calculating 3 month rolling sales')
     # Get the current month, adjusted for having only completed data through February
-    current_month = datetime.now().month - 3  
+    current_month = 2 #<- set to feb bc data is old 
 
     # Define sales columns for the last three months
     if current_month <= 3:
@@ -105,9 +105,9 @@ def current_month_sales(df):
         pd.Series: Series containing sales data for the current month.
     """
     print('Calculating current month sales for 30 days supply...')
-    current_month = datetime.now().month
+    current_month = 2 #datetime.now().month <- set to february because data is old
     this_year_sales_columns = [f'sales_{calendar.month_abbr[i].lower()}' for i in range(1, current_month + 1)]
-    this_month_sales = df[this_year_sales_columns[current_month - 4]]
+    this_month_sales = df[this_year_sales_columns[-1]]
     return this_month_sales
 
 def calculate_unit_cost(df: pd.DataFrame) -> pd.DataFrame:
@@ -240,7 +240,7 @@ def calculate_day_supply(df):
         pd.DataFrame: DataFrame with additional columns for annual, three-month, and one-month days' supply.
     """
     # Calculate average daily sales over 12 months and 3 months
-    avg_daily_sales_12mo = df['rolling_12_month_sales'] / 360
+    avg_daily_sales_12mo = df['rolling_12_month_sales'] / 365
     avg_daily_sales_3mo = df['rolling_3_month_sales'] / 90
     avg_daily_sales_1mo = current_month_sales(df) / 30
     
@@ -278,7 +278,7 @@ def calculate_turnover(df):
     """
     # Calculate annual turnover using 365 days' supply
     if 'annual_days_supply' in df.columns:
-        df['annual_turnover'] = 360 / df['annual_days_supply']
+        df['annual_turnover'] = 365 / df['annual_days_supply']
         df['annual_turnover'] = df['annual_turnover'].replace([np.inf, -np.inf], np.nan).fillna(0)
         df['annual_turnover'] = np.round(df['annual_turnover'], 1)
     else:
@@ -303,11 +303,11 @@ def calculate_turnover(df):
     return df
 
 
-def sales_2_stock(df):
+def sell_through_rate(df):
     """
-    Calculate the sales-to-stock ratio for each part.
+    Calculate the sell through rate for each part.
 
-    This function computes the sales-to-stock ratio by dividing the rolling 12-month sales by the quantity 
+    This function computes the sell through rate by dividing the rolling 12-month sales by the quantity * 100
     in stock for each part. If the 'rolling_12_month_sales' column is missing, an error is logged, and the 
     DataFrame is returned unchanged.
 
@@ -321,7 +321,14 @@ def sales_2_stock(df):
     if 'rolling_12_month_sales' not in df.columns:
         logging.error("'rolling_12_month_sales' column is missing.")
         return df 
-    df["sales_to_stock_ratio"] = np.where(df['quantity'] > 0, df['rolling_12_month_sales'] / df['quantity'], 0)
+    df["sell_through_rate"] = np.where(df['quantity'] > 0, (df['rolling_12_month_sales'] / df['quantity']) * 100, 0)
+    return df
+
+def days_of_inventory_outstanding(df):
+    if 'annual_turnover' not in df.columns or 'months_no_sale' not in df.columns:
+        logging.error("'annual_turnover' or 'months_no_sale' column is missing.")
+        return df
+    df['days_of_inventory_outstanding'] = (np.where(df['annual_turnover'] > 0, 365/ df['annual_turnover'], df['months_no_sale'] * 30)).astype(int)
     return df
 
 def order_2_sales(df):
@@ -370,7 +377,7 @@ def prepare_and_melt_sales_data(df):
     # Define the current year and last year for labeling purposes
     current_year = datetime.now().year
     last_year = current_year - 1
-    current_month_index = datetime.now().month
+    current_month_index = 2 #datetime.now().month <- set to two bc data is from february
 
     # Define sales columns for this year up to the current month (not including) and all of last year
     this_year_sales_columns = [f'sales_{calendar.month_abbr[i].lower()}' for i in range(1, current_month_index + 1)]
@@ -456,7 +463,8 @@ def calculate_additional_metrics(df) -> pd.DataFrame:
     df = calc_roi(df)
     df = calculate_day_supply(df)
     df = calculate_turnover(df)
-    df = sales_2_stock(df)
+    df = sell_through_rate(df)
+    df = days_of_inventory_outstanding(df)
     df = order_2_sales(df)
     
     return df
@@ -484,9 +492,11 @@ def main(current_task, input_data):
         return
 
     try:
-        data = json.loads(input_data)  # Correctly load the JSON string into a Python dictionary
+        data = json.loads(input_data)
         parts_data = pd.DataFrame(data['data'], columns=data['columns'])
         parts_data_final = calculate_additional_metrics(parts_data)
+        logging.info(f"Created Columns: {parts_data_final.columns}.")
+
     
         parts_data, df_melted_sales = prepare_and_melt_sales_data(parts_data)
 
@@ -499,13 +509,14 @@ def main(current_task, input_data):
         else:
             # Merge seasonal components back to the original DataFrame
             parts_data_with_seasonal = parts_data_final.merge(seasonal_components, on='part_number', how='left')
-            parts_data_with_seasonal.to_feather("/Users/skylerwilson/Desktop/PartsWise/Data/Processed/parts_data.feather")
-
+            if 'sell_through_rate' not in parts_data_with_seasonal:
+                logging.error("Failed to add new columns properly.")
         # Save the DataFrame with seasonal components to output_data
         parts_data_with_seasonal = parts_data_with_seasonal.to_json(orient='split')
         # Return success at the end
+        print("columns created successfully...")
         return parts_data_with_seasonal
-
+        
     except ValueError as e:
         logging.error(f"Invalid JSON format: {e}")
         current_task.update_state(state='FAILURE', meta={'progress': 0, 'message': f'Error processing data: Invalid file format.'})
