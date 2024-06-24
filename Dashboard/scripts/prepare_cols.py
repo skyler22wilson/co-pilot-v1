@@ -404,7 +404,6 @@ def prepare_and_melt_sales_data(df):
     return df, df_melted_sales
 
 def extract_seasonal_component(sales_data, time_column, value_column, top_n_freq=1):
-    print('calculating seasonality...')
     """
     Extract the seasonal component from sales data using Fast Fourier Transform (FFT).
 
@@ -453,7 +452,6 @@ def extract_seasonal_component(sales_data, time_column, value_column, top_n_freq
     return seasonal_component_mean
 
 def calculate_additional_metrics(df) -> pd.DataFrame:
-    print('calculating additional metrics')
     df = calculate_rolling_12_month_sales(df)
     df = calculate_3_month_rolling_sales(df)
     df = calculate_unit_cost(df)
