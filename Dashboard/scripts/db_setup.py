@@ -1,9 +1,9 @@
 import logging
 import pandas as pd
-from Dashboard.scripts.create_db import create_database_schema
-from Dashboard.scripts.create_db import Parts, Sales
-from Dashboard.setup.utils import get_engine_and_session
-from Dashboard.scripts.data_insertion import insert_data_using_pandas, preprocess_dataframe
+from dashboard.scripts.create_db import create_database_schema
+from dashboard.scripts.create_db import Parts, Sales
+from dashboard.setup.utils import get_engine_and_session
+from dashboard.scripts.data_insertion import insert_data_using_pandas, preprocess_dataframe
 
 def main(current_task, combined_data):
     logging.basicConfig(level=logging.INFO)

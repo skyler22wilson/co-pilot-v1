@@ -3,7 +3,6 @@ import numpy as np
 import logging
 import json
 from joblib import load
-from sklearn.calibration import CalibratedClassifierCV
 
 # Load model hyperparameters and preprocessor
 def load_model_info(model_info_path, preprocessor_path, model_path):
@@ -30,9 +29,9 @@ def get_feature_indices(preprocessor, selected_features):
         raise
 
 def calculate_obsolescence_risk(df):
-    model_info_path = '/Users/skylerwilson/Desktop/PartsWise/co-pilot-v1/Dashboard/Models/obsolecence_predictor/general_model_details.json'
-    preprocessor_path = '/Users/skylerwilson/Desktop/PartsWise/co-pilot-v1/Dashboard/Models/obsolecence_predictor/preprocessor.joblib'
-    model_path = '/Users/skylerwilson/Desktop/PartsWise/co-pilot-v1/Dashboard/Models/obsolecence_predictor/calibrated_best_random_forest_model.joblib'
+    model_info_path = '/Users/skylerwilson/Desktop/PartsWise/co-pilot-v1/dashboard/models/obsolecence_predictor/general_model_details.json'
+    preprocessor_path = '/Users/skylerwilson/Desktop/PartsWise/co-pilot-v1/dashboard/models/obsolecence_predictor/preprocessor.joblib'
+    model_path = '/Users/skylerwilson/Desktop/PartsWise/co-pilot-v1/dashboard/Models/obsolecence_predictor/calibrated_best_random_forest_model.joblib'
 
     # Load model configuration, preprocessor, and model
     model_config, preprocessor, model = load_model_info(model_info_path, preprocessor_path, model_path)
@@ -52,11 +51,7 @@ def calculate_obsolescence_risk(df):
     logging.info(f"Selected columns: {X_selected}")
 
     # Predict probabilities using the calibrated model
-    calibrator = CalibratedClassifierCV(model, cv='prefit', method='isotonic')
-    calibrator.fit(X_selected, non_obsolete_df['obsolescence_dummy'])
-
-    # Predict probabilities using the calibrated model
-    predicted_probs = calibrator.predict_proba(X_selected)[:, 1]
+    predicted_probs = model.predict_proba(X_selected)[:, 1]
 
     # Assign obsolescence risk to the original DataFrame
     df.loc[non_obsolete_mask, 'obsolescence_risk'] = predicted_probs

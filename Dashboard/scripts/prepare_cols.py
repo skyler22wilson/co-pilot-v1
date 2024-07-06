@@ -9,7 +9,7 @@ import warnings
 warnings.filterwarnings("ignore")
 from datetime import datetime
 
-CONFIG_FILE = "Dashboard/configuration/SeasonalConfig.json"
+CONFIG_FILE = "dashboard/configuration/SeasonalConfig.json"
 LOGGING_DIR = "Logs"
 
 
@@ -30,8 +30,7 @@ def calculate_rolling_12_month_sales(df):
         pd.DataFrame: DataFrame with an additional column 'rolling_12_month_sales'
                       representing the rolling 12-month sales for each part.
     """
-    now = datetime.now()
-    current_month = 2 #now.month - 1 # February is the last completed month (2)
+    current_month = datetime.now().month
 
     # Create lists to hold sales columns from the last 12 months
     if current_month == 1:
@@ -71,7 +70,7 @@ def calculate_3_month_rolling_sales(df):
     """
     print('Calculating 3 month rolling sales')
     # Get the current month, adjusted for having only completed data through February
-    current_month = 2 #<- set to feb bc data is old 
+    current_month = datetime.now().month
 
     # Define sales columns for the last three months
     if current_month <= 3:
@@ -105,7 +104,7 @@ def current_month_sales(df):
         pd.Series: Series containing sales data for the current month.
     """
     print('Calculating current month sales for 30 days supply...')
-    current_month = 2 #datetime.now().month <- set to february because data is old
+    current_month =  datetime.now().month
     this_year_sales_columns = [f'sales_{calendar.month_abbr[i].lower()}' for i in range(1, current_month + 1)]
     this_month_sales = df[this_year_sales_columns[-1]]
     return this_month_sales

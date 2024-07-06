@@ -1,21 +1,46 @@
 from celery import Celery, chord, group, chain
-from Dashboard.scripts.data_clean import main as data_clean
-from Dashboard.scripts.prepare_cols import main as column_preperation
-from Dashboard.scripts.feature_importances import main as calculate_features
-from Dashboard.scripts.demand_calc import main as create_demand_score
-from Dashboard.scripts.create_categories import main as create_categories
-from Dashboard.scripts.check_reorder import main as calculate_reorder
-from Dashboard.Models.obsolecence_predictor.obsolete_predictor import main as obsolescence_risk
-from Dashboard.scripts.monthly_sales import main as monthly_sales
-from Dashboard.scripts.parts_data import main as get_parts_data
-from Dashboard.scripts.db_setup import main as build_database
+from dashboard.setup.utils import define_schema, convert_to_float, convert_to_int, load_configuration
+from dashboard.scripts.data_clean import main as data_clean
+from dashboard.scripts.prepare_cols import main as column_preperation
+from dashboard.scripts.feature_importances import main as calculate_features
+from dashboard.scripts.demand_calc import main as create_demand_score
+from dashboard.scripts.create_categories import main as create_categories
+from dashboard.scripts.check_reorder import main as calculate_reorder
+from dashboard.models.obsolecence_predictor.obsolete_predictor import main as obsolescence_risk
+from dashboard.scripts.monthly_sales import main as monthly_sales
+from dashboard.scripts.parts_data import main as get_parts_data
+from dashboard.scripts.db_setup import main as build_database
 from functools import reduce
 import json
-import pandas as pd
+import polars as pl
 import logging
 
 # Use Redis as the message broker
 app = Celery('tasks', broker='redis://localhost:6379/0', backend='redis://localhost:6379/0')
+
+@app.task(bind=True)
+def read_in_data_task(self, file_path):
+    config = load_configuration('/Users/skylerwilson/Desktop/PartsWise/co-pilot-v1/dashboard/configuration/InitialConfig.json')
+    new_column_names = config['ColumnNames']
+    json_data = None  # Initialize json_data at the start to avoid UnboundLocalError
+    try:
+        df = pl.read_csv(file_path, new_columns=new_column_names, infer_schema_length=1000, ignore_errors=True)
+        df = convert_to_float(df, 'price')
+        df = convert_to_float(df, 'margin')
+        
+        for col in config['SalesColumns']:
+            df = convert_to_int(df, col)
+        json_data = df.write_json()  # Convert DataFrame to JSON
+    except ValueError as ve:
+        print(f'ValueError during processing: {ve}')
+    except Exception as e:
+        print(f'An unexpected error occurred: {e}')
+    
+    if json_data:
+        return json_data
+    else:
+        logging.error("Failed to process data into JSON.")
+        return False
 
 
 @app.task(bind=True)
@@ -24,6 +49,9 @@ def run_data_cleaning_task(self, input_data):
     A Celery task that wraps the data cleaning and processing logic.
     This task is designed to run the main function and handle its state updates and exceptions.
     """
+    if not input_data:
+        logging.error("Input JSON data is missing.")
+        return False
 
     # Pass the current task instance to your main function for state updates
     return data_clean(self, input_data)
@@ -92,7 +120,7 @@ def aggregate_results(self, data_from_previous_tasks):
 
         # Apply filtering logic after aggregation
         filtered_aggregated_data = aggregated_data[(aggregated_data['quantity'] > 0) | (aggregated_data['negative_on_hand'] != 0)]
-        filtered_json = filtered_aggregated_data.to_json(orient='split')
+        filtered_json = filtered_aggregated_data.to_json(orient='records')
 
         logging.info(f"Length of filtered aggregated JSON file: {len(filtered_aggregated_data)} rows")
         return filtered_json
@@ -137,7 +165,8 @@ def database_builder(self, input_data):
 def start_pipeline(self, data):
     # Initial sequential tasks
     initial_tasks = chain(
-        run_data_cleaning_task.s(data),
+        read_in_data_task.s(data),
+        run_data_cleaning_task.s(),
         prepare_data_task.s(),
         feature_importances_task.s(),
         create_demand_score_task.s()
@@ -161,7 +190,6 @@ def start_pipeline(self, data):
         ),
         combine_datasets.s() 
     )
-
     # Combine all parts into one flow
     workflow = chain(
         initial_tasks,

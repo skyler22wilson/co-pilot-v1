@@ -3,7 +3,7 @@ import logging
 import json
 import os
 
-CONFIG_FILE = "Dashboard/configuration/SeasonalConfig.json"
+CONFIG_FILE = "dashboard/configuration/SeasonalConfig.json"
 LOGGING_DIR = "Logs"
 
 def categorizer(df):

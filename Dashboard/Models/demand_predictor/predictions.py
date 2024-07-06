@@ -8,9 +8,9 @@ import json
 log_path = 'Logs/demand_predictor_logfile.log'
 logging.basicConfig(filename=log_path, level=logging.INFO, format='%(asctime)s - %(message)s')
 
-PREPROCESSOR_PATH = '/Users/skylerwilson/Desktop/PartsWise/co-pilot-v1/Dashboard/Models/demand_predictor/preprocessor.joblib'
-MODEL_PATH = '/Users/skylerwilson/Desktop/PartsWise/co-pilot-v1/Dashboard/Models/demand_predictor/xgb_regressor_with_selected_features.joblib'
-MODEL_INFO_PATH = '/Users/skylerwilson/Desktop/PartsWise/co-pilot-v1/Dashboard/Models/demand_predictor/general_model_details.json'
+PREPROCESSOR_PATH = '/Users/skylerwilson/Desktop/PartsWise/co-pilot-v1/dashboard/models/demand_predictor/preprocessor.joblib'
+MODEL_PATH = '/Users/skylerwilson/Desktop/PartsWise/co-pilot-v1/dashboard/models/demand_predictor/xgb_regressor_with_selected_features.joblib'
+MODEL_INFO_PATH = '/Users/skylerwilson/Desktop/PartsWise/co-pilot-v1/dashboard/models/demand_predictor/general_model_details.json'
 
 def load_configuration(config_path):
     """ Load JSON configuration file. """

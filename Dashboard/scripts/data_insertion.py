@@ -1,6 +1,6 @@
 import logging
-from Dashboard.scripts.create_db import Base
-from Dashboard.setup.utils import get_engine_and_session
+from dashboard.scripts.create_db import Base
+from dashboard.setup.utils import get_engine_and_session
 
 # Utility function to create the schema
 def create_database_schema(db_file_path):

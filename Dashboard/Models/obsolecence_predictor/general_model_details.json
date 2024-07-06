@@ -1,17 +1,31 @@
 {
     "selected_features": [
-        "rolling_3_month_sales",
+        "quantity",
+        "margin",
+        "quantity_ordered_ytd",
+        "special_orders_ytd",
+        "negative_on_hand",
+        "total_cost",
+        "margin_percentage",
         "gross_profit",
+        "roi",
+        "annual_days_supply",
         "three_month_days_supply",
+        "one_month_days_supply",
         "three_month_turnover",
+        "one_month_turnover",
+        "sell_through_rate",
+        "days_of_inventory_outstanding",
+        "order_to_sales_ratio",
         "seasonal_component"
     ],
     "best_hyperparameters": {
-        "n_estimators": 500,
+        "n_estimators": 200,
         "min_samples_split": 15,
-        "min_samples_leaf": 5,
-        "max_features": "log2",
-        "max_depth": 9,
+        "min_samples_leaf": 10,
+        "min_impurity_decrease": 0.0001,
+        "max_features": "sqrt",
+        "max_depth": 7,
         "bootstrap": true
     }
 }

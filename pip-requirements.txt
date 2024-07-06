@@ -15,3 +15,4 @@ llama-index-readers-smart-pdf-loader
 llmsherpa
 llama_index.embeddings.huggingface
 llama_index.indices.document_summary 
+polars

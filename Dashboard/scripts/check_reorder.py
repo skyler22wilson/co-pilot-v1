@@ -5,7 +5,7 @@ import numpy as np
 import json
 from scipy.stats import norm
 
-CONFIG_FILE = "Dashboard/configuration/SeasonalConfig.json"
+CONFIG_FILE = "dashboard/configuration/SeasonalConfig.json"
 LOGGING_DIR = "Logs"
 
 def calculate_safety_stock(df, service_level=0.75, max_lead_time=90, min_lead_time=10):

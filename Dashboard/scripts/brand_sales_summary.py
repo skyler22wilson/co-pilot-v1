@@ -7,7 +7,7 @@ import logging
 import json
 
 LOGGING_DIR = "Logs"
-CONFIG_FILE = "Dashboard/configuration/SeasonalConfig.json" 
+CONFIG_FILE = "dashboard/configuration/SeasonalConfig.json" 
 
 def load_configuration(config_path):
     if not os.path.exists(config_path):

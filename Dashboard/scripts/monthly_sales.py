@@ -5,7 +5,7 @@ import json
 from datetime import datetime
 import calendar
 
-CONFIG_FILE = "Dashboard/configuration/SeasonalConfig.json"
+CONFIG_FILE = "dashboard/configuration/SeasonalConfig.json"
 LOGGING_DIR = "Logs"
 
 def prepare_and_melt_sales_data(df, config):

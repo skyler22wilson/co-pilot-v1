@@ -3,7 +3,7 @@ import json
 import logging
 import os
 
-CONFIG_FILE = "Dashboard/configuration/SeasonalConfig.json"
+CONFIG_FILE = "dashboard/configuration/SeasonalConfig.json"
 LOGGING_DIR = "Logs"
 
 def load_config(config_file):

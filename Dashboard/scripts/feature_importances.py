@@ -6,8 +6,8 @@ from joblib import load
 from sklearn.preprocessing import MinMaxScaler
 
 # Constants
-CONFIG_FILE = "Dashboard/configuration/SeasonalConfig.json"
-DEMAND_PREDICTOR = "/Users/skylerwilson/Desktop/PartsWise/co-pilot-v1/Dashboard/Models/demand_predictor/xgb_regressor_with_selected_features.joblib"
+CONFIG_FILE = "dashboard/configuration/SeasonalConfig.json"
+DEMAND_PREDICTOR = "/Users/skylerwilson/Desktop/PartsWise/co-pilot-v1/dashboard/models/demand_predictor/xgb_regressor_with_selected_features.joblib"
 RANDOM_STATE = 42
 
 
