@@ -1,0 +1,33 @@
+{
+    "selected_features": [
+        "quantity",
+        "margin",
+        "months_no_sale",
+        "special_orders_ytd",
+        "negative_on_hand",
+        "rolling_3_month_sales",
+        "total_cost",
+        "margin_percentage",
+        "gross_profit",
+        "roi",
+        "annual_days_supply",
+        "three_month_days_supply",
+        "one_month_days_supply",
+        "three_month_turnover",
+        "sell_through_rate",
+        "days_of_inventory_outstanding"
+    ],
+    "best_hyperparameters": {
+        "colsample_bytree": 0.9987495152148583,
+        "gamma": 0.3404454725494464,
+        "huber_slope": 0.2935248828523452,
+        "learning_rate": 0.04576778933490369,
+        "max_delta_step": 7,
+        "max_depth": 14,
+        "min_child_weight": 3,
+        "n_estimators": 720,
+        "reg_alpha": 0.0022291527823149982,
+        "reg_lambda": 1.8785343084380517,
+        "subsample": 0.8538182655908585
+    }
+}
