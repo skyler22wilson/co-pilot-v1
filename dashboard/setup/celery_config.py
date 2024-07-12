@@ -1,5 +1,5 @@
 from celery import Celery, chord, group, chain
-from dashboard.setup.utils import define_schema, convert_to_float, convert_to_int, load_configuration
+from dashboard.setup.utils import convert_to_float, convert_to_int, load_configuration
 from dashboard.scripts.data_clean import main as data_clean
 from dashboard.scripts.prepare_cols import main as column_preperation
 from dashboard.scripts.feature_importances import main as calculate_features

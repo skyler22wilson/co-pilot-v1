@@ -87,5 +87,8 @@ def create_long_form_dataframe(df: pl.DataFrame) -> pl.DataFrame:
 
     df_this_year = unpivot_and_clean(df, this_year_sales_columns, current_year)
     df_last_year = unpivot_and_clean(df, last_year_sales_columns, last_year)
+    df_long = pl.concat([df_this_year, df_last_year])
+    logging.debug(f"Long form dataframe shape: {df_long.shape}")
+    logging.debug(f"Long form dataframe head:\n{df_long.head()}")
 
-    return pl.concat([df_this_year, df_last_year])
+    return df_long
