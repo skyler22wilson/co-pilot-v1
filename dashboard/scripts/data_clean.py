@@ -39,7 +39,7 @@ def clean_and_convert_numeric(df, float_cols, int_cols):
     ]
     
     int_clean_exprs = [
-        pl.col(col).str.replace_all(r'[^\d.-]', '').cast(pl.Int64).fill_nan(0).alias(col)
+        pl.col(col).str.replace_all(r'[^\d.-]', '').cast(pl.Float64).fill_nan(0.0).cast(pl.Int64).alias(col)
         for col in valid_int_columns
     ]
     
@@ -175,12 +175,15 @@ def update_months_no_sale(df, sales_columns):
     # Overwrite months_no_sale only if it's not more than 12 already
     # Use the computed months_no_sale unless there were no sales at all (i.e., zero_sales_expr == length of months_to_count)
     df = df.with_columns(
-        pl.when((pl.col('months_no_sale_computed') < pl.col('months_no_sale')) &
-                (pl.col('months_no_sale_computed') != len(months_to_count)))
-        .then(pl.col('months_no_sale_computed'))
-        .otherwise(pl.col('months_no_sale'))
-        .alias('months_no_sale')
-    ).drop('months_no_sale_computed')
+        pl.when((pl.col('months_no_sale') <= len(months_to_count)) & (pl.sum_horizontal(pl.col(sales_columns)) == 0))
+            .then(len(months_to_count))
+            .otherwise(
+                pl.when(pl.col('months_no_sale') > len(months_to_count))
+                .then(pl.col('months_no_sale'))
+                .otherwise(pl.col('months_no_sale_computed'))
+            )
+            .alias('months_no_sale')
+        ).drop(['months_no_sale_computed'])
 
     logging.info("Update complete.")
     return df

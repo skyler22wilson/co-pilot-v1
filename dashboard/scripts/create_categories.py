@@ -1,7 +1,7 @@
-import pandas as pd
+import polars as pl
 import logging
-import json
 import os
+from io import StringIO
 
 CONFIG_FILE = "dashboard/configuration/SeasonalConfig.json"
 LOGGING_DIR = "Logs"
@@ -15,14 +15,14 @@ def categorizer(df):
     The demand threshold is computed as the 95th percentile of the demand column.
 
     Args:
-        df (pd.DataFrame): Input DataFrame containing inventory data. 
+        df (pl.DataFrame): Input DataFrame containing inventory data. 
                            Must include 'months_no_sale' and 'demand' columns.
 
     Raises:
         ValueError: If the required columns ('months_no_sale', 'demand') are not present in the DataFrame.
 
     Returns:
-        pd.DataFrame: DataFrame with an additional 'inventory_category' column indicating the category of each item.
+        pl.DataFrame: DataFrame with an additional 'inventory_category' column indicating the category of each item.
     """
     # Ensure that required columns are present
     required_columns = ['months_no_sale', 'demand']
@@ -34,21 +34,36 @@ def categorizer(df):
     demand_threshold = df['demand'].quantile(0.95)
     print(demand_threshold)
 
-    # Initialize the 'Inventory Category' column to 'Non-essential'
-    df['inventory_category'] = 'non-essential'
-    
-    # Assign 'Obsolete' category
-    df.loc[df['months_no_sale'] >= 12, 'inventory_category'] = 'obsolete'
-    
-    # Assign 'Nearing Obsolete' category
-    df.loc[(df['months_no_sale'] >= 7) & (df['months_no_sale'] < 12), 'inventory_category'] = 'nearing_obsolete'
-    
-    # Assign 'Essential' category based on stricter criteria
-    essential_criteria = (
-        (df['months_no_sale'] <= 6) &
-        (df['demand'] > demand_threshold) 
+    # Initialize the 'inventory_category' column to 'non-essential'
+    df = df.with_columns(pl.lit('non-essential').alias('inventory_category'))
+
+    # Assign 'obsolete' category
+    df = df.with_columns(
+        pl.when(pl.col('months_no_sale') >= 12)
+        .then('obsolete')
+        .otherwise(pl.col('inventory_category'))
+        .alias('inventory_category')
     )
-    df.loc[essential_criteria, 'inventory_category'] = 'essential'
+
+    # Assign 'nearing_obsolete' category
+    df = df.with_columns(
+        pl.when((pl.col('months_no_sale') >= 7) & (pl.col('months_no_sale') < 12))
+        .then('nearing_obsolete')
+        .otherwise(pl.col('inventory_category'))
+        .alias('inventory_category')
+    )
+
+    # Assign 'essential' category based on stricter criteria
+    essential_criteria = (
+        (pl.col('months_no_sale') <= 6) &
+        (pl.col('demand') > demand_threshold)
+    )
+    df = df.with_columns(
+        pl.when(essential_criteria)
+        .then('essential')
+        .otherwise(pl.col('inventory_category'))
+        .alias('inventory_category')
+    )
 
     return df
 
@@ -56,20 +71,20 @@ def main(current_task, input_data):
     print('Creating Categories')
     try:
         # Set up logging
-        log_filename = os.path.join(LOGGING_DIR, 'categorizer_script.log')  # Assume LOGGING_DIR is defined
+        log_filename = os.path.join(LOGGING_DIR, 'categorizer_script.log')
         logging.basicConfig(filename=log_filename, level=logging.INFO)
 
         # Load dataset
-        original_data = json.loads(input_data)  
-        dataset = pd.DataFrame(original_data['data'], columns=original_data['columns'])
-        logging.info(f"Length of categories JSON file: {len(dataset)} rows")
+        original_data = pl.read_json(StringIO(input_data))
+        df = pl.DataFrame(original_data['data'], schema=original_data['columns'])
+        logging.info(f"Length of categories JSON file: {len(df)} rows")
 
         current_task.update_state(state='PROGRESS', meta={'message': 'Creating inventory categories...'})
 
-        dataset = categorizer(dataset)  # Assuming categorizer is defined elsewhere
+        df = categorizer(df)
 
-        # Convert dataset to JSON string for return
-        json_dataset = dataset.to_json(orient='split') 
+        # Convert DataFrame to JSON string for return
+        json_dataset = df.write_json()
 
         return json_dataset
 
@@ -77,5 +92,4 @@ def main(current_task, input_data):
         logging.error(f"Error in processing: {str(e)}")
         current_task.update_state(state='FAILURE', meta={'message': f'Error processing data: {str(e)}'})
         return False
-
 

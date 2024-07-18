@@ -1,8 +1,7 @@
 from celery import Celery, chord, group, chain
-from dashboard.setup.utils import convert_to_float, convert_to_int, load_configuration
+from dashboard.setup.utils import convert_to_float, convert_to_int, load_configuration, create_schema, update_schema
 from dashboard.scripts.data_clean import main as data_clean
 from dashboard.scripts.prepare_cols import main as column_preperation
-from dashboard.scripts.feature_importances import main as calculate_features
 from dashboard.scripts.demand_calc import main as create_demand_score
 from dashboard.scripts.create_categories import main as create_categories
 from dashboard.scripts.check_reorder import main as calculate_reorder
@@ -23,13 +22,19 @@ def read_in_data_task(self, file_path):
     config = load_configuration('/Users/skylerwilson/Desktop/PartsWise/co-pilot-v1/dashboard/configuration/InitialConfig.json')
     new_column_names = config['ColumnNames']
     json_data = None  # Initialize json_data at the start to avoid UnboundLocalError
+    schema_overrides = {column: pl.Utf8 for column in new_column_names}
     try:
-        df = pl.read_csv(file_path, new_columns=new_column_names, infer_schema_length=1000, ignore_errors=True)
+        df = pl.read_csv(file_path, new_columns=new_column_names, schema_overrides=schema_overrides, infer_schema_length=100, ignore_errors=True)
+        df = df.filter(~pl.col('part_number').str.contains("Parts Inventory: 73897 records"))
         df = convert_to_float(df, 'price')
         df = convert_to_float(df, 'margin')
         
         for col in config['SalesColumns']:
             df = convert_to_int(df, col)
+        
+        #update the schema
+        schema = create_schema()
+        df = update_schema(df, schema)
         json_data = df.write_json()  # Convert DataFrame to JSON
     except ValueError as ve:
         print(f'ValueError during processing: {ve}')
@@ -64,11 +69,6 @@ def prepare_data_task(self, input_data):
     """
     return column_preperation(self, input_data)
 
-
-@app.task(bind=True)
-def feature_importances_task(self, input_data):
-    return calculate_features(self, input_data)
-
 @app.task(bind=True)
 def create_demand_score_task(self, input_data):
     return create_demand_score(self, input_data)
@@ -101,7 +101,7 @@ def aggregate_results(self, data_from_previous_tasks):
             if not columns or not data_values:
                 raise ValueError(f"Missing columns or data in DataFrame {idx}")
 
-            df = pd.DataFrame(data_values, columns=columns, index=index)
+            df = pl.DataFrame(data_values, schema=columns)
             dataframes.append(df)
             logging.info(f"DataFrame {idx} shape: {df.shape}")
 
@@ -111,23 +111,25 @@ def aggregate_results(self, data_from_previous_tasks):
             raise
 
     def merge_dfs(left, right):
-        overlapping_columns = left.columns.intersection(right.columns).drop('part_number', errors='ignore')
+        overlapping_columns = left.columns.intersection(right.columns).to_list()
+        overlapping_columns.remove('part_number')
         right_adjusted = right.drop(columns=overlapping_columns)
-        return pd.merge(left, right_adjusted, on='part_number', how='outer')
+        return left.join(right_adjusted, on='part_number', how='outer')
 
     try:
         aggregated_data = reduce(merge_dfs, dataframes)
 
         # Apply filtering logic after aggregation
-        filtered_aggregated_data = aggregated_data[(aggregated_data['quantity'] > 0) | (aggregated_data['negative_on_hand'] != 0)]
-        filtered_json = filtered_aggregated_data.to_json(orient='records')
+        filtered_aggregated_data = aggregated_data.filter(
+            (pl.col('quantity') > 0) | (pl.col('negative_on_hand') != 0)
+        )
+        filtered_json = filtered_aggregated_data.to_json()
 
         logging.info(f"Length of filtered aggregated JSON file: {len(filtered_aggregated_data)} rows")
         return filtered_json
     except Exception as e:
         logging.error(f"Error during aggregation: {e}")
         raise
-
 
 @app.task(bind=True)
 def monthly_sales_task(self, input_data):
@@ -168,7 +170,6 @@ def start_pipeline(self, data):
         read_in_data_task.s(data),
         run_data_cleaning_task.s(),
         prepare_data_task.s(),
-        feature_importances_task.s(),
         create_demand_score_task.s()
     )
 

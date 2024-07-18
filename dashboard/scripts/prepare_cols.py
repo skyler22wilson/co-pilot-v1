@@ -120,7 +120,7 @@ def calculate_annual_financial_metrics(df: pl.DataFrame) -> pl.DataFrame:
         .otherwise(0.00)
         .round(2)
         .alias('roi')
-    ])
+    ]).drop('total_sales_ytd')
     return df
 
 def current_month_sales(df: pl.DataFrame) -> pl.Expr:
@@ -230,9 +230,9 @@ def calculate_turnover(df: pl.DataFrame) -> pl.DataFrame:
     average_inventory = (starting_inventory + ending_inventory) / 2
     turnover = pl.col('cogs') / average_inventory
 
-    return df.with_columns(
-        turnover.fill_nan(0).round(2).alias('turnover')
-    )
+    turnover = pl.when(average_inventory > 0).then(pl.col('cogs') / average_inventory).otherwise(0).alias('turnover')
+
+    return df.with_columns(turnover)
 
 def calculate_3mo_turnover(df):
     months_covered = datetime.now().month
@@ -244,9 +244,9 @@ def calculate_3mo_turnover(df):
     average_inventory = (starting_inventory + ending_inventory) / 2
     turnover = pl.col('cogs') / average_inventory
 
-    return df.with_columns(
-        turnover.fill_nan(0).round(2).alias('3m_turnover')
-    )
+    turnover = pl.when(average_inventory > 0).then(pl.col('cogs') / average_inventory).otherwise(0).alias('3m_turnover')
+
+    return df.with_columns(turnover)
 
 def sell_through_rate(df: pl.DataFrame) -> pl.DataFrame:
     """
@@ -489,7 +489,7 @@ def main(current_task, input_data):
         parts_data = calculate_additional_metrics(df)
         logging.info(f"Created Columns: {parts_data.columns}.")
 
-        parts_data.write_csv('/Users/skylerwilson/Desktop/PartsWise/Data/Processed/parts_data_prepared.csv')
+        parts_data.write_csv('/Users/skylerwilson/Desktop/PartsWise/co-pilot-v1/data/processed_data/parts_data_prepared.csv')
         
         parts_data_json = parts_data.write_json()
     

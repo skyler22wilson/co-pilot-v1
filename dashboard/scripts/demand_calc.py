@@ -1,115 +1,138 @@
-import pandas as pd
 import json
 import logging
-import os
+import joblib
+import polars as pl
+import numpy as np
+from sklearn.preprocessing import MinMaxScaler
+from joblib import load
+from dashboard.models.demand_predictor.predictions import calculate_demand
+from dashboard.setup.utils import load_configuration
 
 CONFIG_FILE = "dashboard/configuration/SeasonalConfig.json"
-LOGGING_DIR = "Logs"
+DEMAND_PREDICTOR = '/Users/skylerwilson/Desktop/PartsWise/co-pilot-v1/dashboard/models/demand_predictor/preprocessor.joblib'
+PREPROCESSOR_PATH = '/Users/skylerwilson/Desktop/PartsWise/co-pilot-v1/dashboard/models/demand_predictor/preprocessor.joblib'
+MODEL_INFO_PATH = '/Users/skylerwilson/Desktop/PartsWise/co-pilot-v1/dashboard/models/demand_predictor/general_model_details.json'
 
-def load_config(config_file):
+def verify_selected_features(parts_data, selected_features):
+    logging.info("Verifying selected features...")
+    missing_features = [feature for feature in selected_features if feature not in parts_data.columns]
+    if missing_features:
+        logging.warning(f"Missing features in data: {missing_features}")
+    logging.info("Feature verification completed.")
+
+def preprocess_data(parts_data, selected_features):
+    """ Preprocess data for demand model """
+    logging.info("Loading and preprocessing data for demand model...")
+    logging.info(f"Parts data type: {type(parts_data)}")
     try:
-        with open(config_file, 'r') as f:
-            config = json.load(f) 
-        return config
-    except json.JSONDecodeError:
-        raise ValueError("Invalid JSON format in configuration file.")
-    except FileNotFoundError:
-        raise ValueError("Configuration file not found.")
+        model_data = parts_data.filter(pl.col('months_no_sale') < 12)
+        X = model_data.select(selected_features)
+        y = model_data.select('rolling_12m_sales')
+        return X, y
+    except Exception as e:
+        logging.error(f"Error in preprocessing data: {str(e)}")
+        raise
 
+def check_for_nan(df, name):
+    if df.select(pl.all().is_null().sum()).to_numpy().sum() > 0:
+        logging.warning(f"{name} contains NaN values.")
 
-def calculate_demand_score(df, feature_importances_df):
-    """
-    Calculate the demand score for each item in the DataFrame based on feature importances.
+def calculate_demand_score(parts_data, shap_values, negative_features):
+    # Adjust for negative features
+    for feature in negative_features:
+        if feature in parts_data.columns:
+            parts_data = parts_data.with_column((pl.col(feature) * -1).alias(feature))
 
-    This function calculates a demand score for each item in the DataFrame by using the feature importances provided. 
-    The demand score is a weighted sum of the relevant features, normalized by ranking for non-obsolete items.
+    # Calculate weighted scores using SHAP values
+    shap_sum = np.abs(shap_values.values).sum(axis=1)
+    weighted_scores = pl.Series(shap_sum)
 
-    Args:
-        df (pd.DataFrame): The input DataFrame containing the data for which the demand score is to be calculated.
-        feature_importances_df (pd.DataFrame): DataFrame containing feature importances with columns 'feature' and 'scaled_importance'.
+    # Normalize the demand score between 0 and 1
+    min_max_scaler = MinMaxScaler()
+    demand_score_normalized = min_max_scaler.fit_transform(weighted_scores.to_numpy().reshape(-1, 1)).flatten()
 
-    Returns:
-        pd.DataFrame: The input DataFrame with an additional 'demand' column representing the calculated demand score for each item.
+    # Convert the normalized scores back to a Polars Series
+    demand_score_normalized = pl.Series(demand_score_normalized)
 
-    Raises:
-        ValueError: If the 'scaled_importance' or 'feature' columns are missing in the feature_importances_df.
-
-    Steps:
-        1. Validate that the feature importances DataFrame contains the necessary columns ('scaled_importance' and 'feature').
-        2. Map the feature importances to a dictionary for easy access.
-        3. Identify the relevant feature columns in the input DataFrame that correspond to the feature importances.
-        4. Calculate the demand score for each item by applying a weighted sum of the relevant features.
-        5. Set the demand score to 0 for items that are considered obsolete (items with 'months_no_sale' >= 12).
-        6. Normalize the demand score for non-obsolete items by ranking the scores on a percentile basis.
-    """
-    # Ensure that the feature importances DataFrame has the necessary columns
-    if 'scaled_importance' not in feature_importances_df.columns or 'feature' not in feature_importances_df.columns:
-        logging.error("'scaled_importance' or 'feature' column is missing in the feature_importances_df.")
-        return df
-
-    # Map the importances to the corresponding features
-    feature_importances = feature_importances_df.set_index('feature')['scaled_importance'].to_dict()
-
-    # Select only the relevant columns for calculating demand score
-    feature_columns = [col for col in df.columns if col in feature_importances]
-
-    # Calculate demand score based on feature importances
-    df['demand'] = df[feature_columns].apply(
-        lambda row: sum(feature_importances[col] * row[col] for col in feature_columns),
-        axis=1
+    # Set demand to 0 for obsolete parts
+    parts_data = parts_data.with_column(
+        pl.when(pl.col('months_no_sale') >= 12)
+        .then(0)
+        .otherwise(demand_score_normalized)
+        .alias('demand')
     )
 
-    # Set 'demand' to 0 for obsolete items
-    df['demand'] = df.apply(lambda x: 0 if x['months_no_sale'] >= 12 else x['demand'], axis=1)
-
-    # Normalize the demand score for non-obsolete items by ranking
-    non_obsolete_mask = df['months_no_sale'] < 12
-    df.loc[non_obsolete_mask, 'demand'] = df.loc[non_obsolete_mask, 'demand'].rank(method='dense', pct=True)
-
-    return df
+    return parts_data
 
 def main(current_task, input_data):
-    print('Demand script running...')
-    logging.basicConfig(filename=os.path.join(LOGGING_DIR, 'demand_script.log'), 
-                        level=logging.INFO, 
-                        format='%(asctime)s - %(levelname)s - %(message)s')    
+    print('Calculating Features...')
+    logging.basicConfig(filename='Logs/feature_selection.log', level=logging.INFO)
+    logging.info("Demand Score script is running...")
+
+    config = load_configuration(CONFIG_FILE)
+    if config is None:
+        logging.error('Failed to load configuration.')
+        return
+    
     try:
-        print("Loading combined data from input...")
-        combined_data = json.loads(input_data)  # Load the JSON string into a Python dictionary
-        print("Successfully loaded combined data.")
-        
-        # Deserialize the parts data from the JSON string within combined_data
-        print("Deserializing parts data from JSON...")
-        parts_data_json = combined_data['parts_data']
-        parts_data = pd.read_json(parts_data_json, orient='split')
+        # Ensure input_data is a JSON object and load it into a Polars DataFrame
+        input_json = json.loads(input_data)  # Ensure input_data is a JSON object
+        parts_data = pl.DataFrame(input_json)  # Load data as a Polars DataFrame
+        print(type(parts_data))
 
-        
-        # Deserialize the feature importances data from the JSON string within combined_data
-        print("Deserializing feature importances data from JSON...")
-        feature_importances_json = combined_data['importance_data']
-        feature_importances_df = pd.read_json(feature_importances_json, orient='split')
-        print(f"Feature importances data loaded successfully. DataFrame shape: {feature_importances_df.shape}")
-        
-        # Print a snippet of the feature importances DataFrame for inspection
-        print("Preview of feature importances DataFrame:", feature_importances_df.head(), sep='\n')
-        
-        print("Calculating demand score adjustment based on feature importances...")
-        df_adjusted = calculate_demand_score(parts_data, feature_importances_df)
-        print("Demand score adjustment completed successfully.")
-        df_adjusted.to_feather("/Users/skylerwilson/Desktop/PartsWise/co-pilot-v1/data/processed_data/parts_data.feather")
-
-        # Save the adjusted dataframe
-        if df_adjusted is not None:
-            data = df_adjusted.to_json(orient='split')
-            print('Demand script Finished')
-            return data
-
-    except ValueError as e:
-        logging.error(f"Invalid JSON format: {e}")
-        current_task.update_state(state='FAILURE', meta={'progress': 0, 'message': f'Error processing data: Invalid file format.'})
-        return False
+        logging.info(f"Parts data loaded: {parts_data.head()}")
+        logging.info(f"Parts data loaded: {parts_data.shape}")
     except Exception as e:
-        logging.error(f"Error in processing: {str(e)}")
-        current_task.update_state(state='FAILURE', meta={'progress': 0, 'message': f'Error processing data: {str(e)}'})
-        return False
+        logging.error(f"Error loading data: {e}")
+        return
+
+    try:
+        with open(MODEL_INFO_PATH, 'r') as file:
+            general_model_info = json.load(file)
+            selected_features = general_model_info.get('selected_features', [])
+        logging.info(f"Selected features: {selected_features}")
+    except Exception as e:
+        logging.error(f"Error loading model details: {e}")
+        return
+
+    try:
+        verify_selected_features(parts_data, selected_features)
+        logging.info(f'Selected Features Verified: {selected_features}')
+    except Exception as e:
+        logging.error(f"Error verifying selected features: {e}")
+        return
+
+    try:
+        X, y = preprocess_data(parts_data, selected_features)
+        check_for_nan(X, "X (features)")
+        check_for_nan(y, "y (target)")
+    except Exception as e:
+        logging.error(f"Error preprocessing data: {e}")
+        return
+
+    try:
+        pipeline = load(PREPROCESSOR_PATH)
+        logging.info(f"Loaded preprocessor: {pipeline}")
+    except Exception as e:
+        logging.error(f"Error loading preprocessor: {e}")
+        return
+
+    try:
+        negative_features = ['months_no_sale', '1m_days_supply', '3m_days_supply', '12m_days_supply', 'days_of_inventory_outstanding']
+        # Call the calculate_demand function to get demand scores and SHAP values
+        demand_scores, shap_values = calculate_demand(input_data)
+        logging.info(f"Demand scores calculated: {demand_scores}")
+        logging.info(f"SHAP values calculated: {shap_values}")
+
+        # Calculate demand score using the SHAP values
+        parts_data = calculate_demand_score(parts_data, shap_values, negative_features)
+
+        parts_data.write_csv('/Users/skylerwilson/Desktop/PartsWise/co-pilot-v1/data/processed_data_with_demand_score.csv')
+        logging.info(f"Processed data saved")
+
+        return parts_data
+
+    except Exception as e:
+        logging.error(f"Error processing data: {e}")
+        return
 
