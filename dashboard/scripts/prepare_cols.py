@@ -7,7 +7,7 @@ import calendar
 import warnings
 warnings.filterwarnings("ignore")
 from datetime import datetime
-from dashboard.setup.utils import load_configuration, create_long_form_dataframe
+from dashboard.setup.utils import load_configuration, create_long_form_dataframe, get_month_number_expr
 
 CONFIG_FILE = "dashboard/configuration/SeasonalConfig.json"
 LOGGING_DIR = "Logs"
@@ -152,12 +152,15 @@ def calculate_rolling_sales(df_long, df_original):
     Calculate rolling sales, aggregate them, and join the results back to the original DataFrame.
 
     Args:
-        df_long (pl.DataFrame): DataFrame in long format with 'part_number', 'month', and 'quantity_sold'.
+        df_long (pl.DataFrame): DataFrame in long format with 'part_number', 'date', and 'quantity_sold'.
         df_original (pl.DataFrame): Original DataFrame before conversion to long format.
 
     Returns:
         pl.DataFrame: Original DataFrame enriched with aggregated rolling sales data.
     """
+    # Ensure the data is sorted by part_number and date
+    df_long = df_long.sort(by=["part_number", "date"])
+
     # Calculate rolling sales
     df_rolling = df_long.with_columns([
         pl.col("quantity_sold").rolling_sum(window_size=3, min_periods=1).over("part_number").alias("rolling_3m_sales"),
@@ -166,8 +169,8 @@ def calculate_rolling_sales(df_long, df_original):
 
     # Aggregate rolling sales over all months for each part number
     df_aggregated = df_rolling.group_by("part_number").agg([
-        pl.sum("rolling_3m_sales").alias("rolling_3m_sales"),
-        pl.sum("rolling_12m_sales").alias("rolling_12m_sales")
+        pl.col("rolling_3m_sales").last().alias("rolling_3m_sales"),
+        pl.col("rolling_12m_sales").last().alias("rolling_12m_sales")
     ])
 
     # Join the aggregated data back to the original DataFrame
@@ -213,33 +216,39 @@ def calculate_turnover(df: pl.DataFrame) -> pl.DataFrame:
 
     Args:
         df (pl.DataFrame): DataFrame containing inventory data with columns 'quantity_ordered_ytd',
-                           'quantity', 'total_sales_ytd', and 'cogs'.
+                           'special_orders_ytd', 'quantity', 'rolling_12m_sales', and 'cogs'.
 
     Returns:
-        pl.DataFrame: DataFrame with an additional column for inventory turnover.
+        pl.DataFrame: DataFrame with additional columns for inventory turnover and starting inventory.
     """
     months_covered = datetime.now().month
 
     # Estimate full year orders based on YTD orders
-    estimated_fy_orders = (pl.col('quantity_ordered_ytd') / months_covered) * 12 
-    
+    estimated_fy_orders = ((pl.col('quantity_ordered_ytd') + pl.col('special_orders_ytd')) / months_covered) * 12 
 
     # Estimating beginning inventory (assuming you have some way to calculate or estimate this)
-    starting_inventory = pl.col('quantity') + estimated_fy_orders - pl.col('rolling_12m_sales')
+    starting_inventory = (pl.when(estimated_fy_orders > 0)
+                          .then((pl.col('quantity') + pl.col('rolling_12m_sales') - estimated_fy_orders) * pl.col('price'))
+                          .otherwise((pl.col('quantity') + pl.col('rolling_12m_sales')) * pl.col('price'))
+                          .alias('starting_inventory'))
+    
     ending_inventory = pl.col('quantity')
     average_inventory = (starting_inventory + ending_inventory) / 2
-    turnover = pl.col('cogs') / average_inventory
 
+    # Calculate turnover using COGS and average inventory
     turnover = pl.when(average_inventory > 0).then(pl.col('cogs') / average_inventory).otherwise(0).alias('turnover')
 
-    return df.with_columns(turnover)
+    # Add both starting inventory and turnover to the DataFrame
+    return df.with_columns([starting_inventory, turnover])
 
 def calculate_3mo_turnover(df):
     months_covered = datetime.now().month
-    estimated_3mo_orders = (pl.col('quantity_ordered_ytd') / months_covered) * 3
+    estimated_3m_orders = (pl.col('quantity_ordered_ytd') +pl.col('special_orders_ytd') / months_covered) * 3
     
     # Estimating beginning inventory (assuming you have some way to calculate or estimate this)
-    starting_inventory = pl.col('quantity') + estimated_3mo_orders - pl.col('rolling_3m_sales')
+    starting_inventory = (pl.when(estimated_3m_orders > 0)
+                          .then((pl.col('quantity') + pl.col('rolling_3m_sales') - estimated_3m_orders) * pl.col('price')) 
+                          .otherwise((pl.col('quantity') + pl.col('rolling_3m_sales') * pl.col('price'))))
     ending_inventory = pl.col('quantity')
     average_inventory = (starting_inventory + ending_inventory) / 2
     turnover = pl.col('cogs') / average_inventory
@@ -270,13 +279,13 @@ def sell_through_rate(df: pl.DataFrame) -> pl.DataFrame:
 
     sell_through_rate = (pl.when(
         pl.col('quantity') > 0)
-        .then(pl.col('rolling_12m_sales') / pl.col('quantity') * 100)
+        .then(pl.col('rolling_12m_sales') * pl.col('price') / pl.col('starting_inventory') * 100)
         .otherwise(0)
         .round(2)
         .alias('sell_through_rate')
     )
 
-    return df.with_columns(sell_through_rate)
+    return df.with_columns(sell_through_rate).drop('starting_inventory')
 
 def days_of_inventory_outstanding(df: pl.DataFrame) -> pl.DataFrame:
     """
@@ -348,24 +357,10 @@ def create_seasonal_component(df):
 
     # Map month names to numbers (if needed)
     logging.debug(f"Shape before adding cyclical features: {df.shape}")
-    month_to_number = {month.lower(): i for i, month in enumerate(calendar.month_abbr) if month}
-
-    # Create a datetime column assuming the first day of each month
-    month_number_expr = pl.when(pl.col("month").str.to_lowercase() == "jan").then(1)
-    for month, num in month_to_number.items():
-        month_number_expr = month_number_expr.when(pl.col("month").str.to_lowercase() == month).then(num)
-
-    # Apply the case expression
-    df = df.with_columns(month_number_expr.alias("month_number"))
-
-    month_numbers = df.get_column("month_number").to_numpy()  
-    month_sin = np.sin(2 * np.pi * month_numbers / 12)
-    month_cos = np.cos(2 * np.pi * month_numbers / 12)
-
-    # Add calculated columns back to DataFrame
+    logging.debug(f"columns before adding cyclical features: {df.columns}")
     df = df.with_columns([
-        pl.Series("month_sin", month_sin),
-        pl.Series("month_cos", month_cos)
+        (2 * np.pi * pl.col("month_number") / 12).sin().alias("month_sin"),
+        (2 * np.pi * pl.col("month_number") / 12).cos().alias("month_cos")
     ])
 
     logging.debug(f"Shape after adding cyclical features: {df.shape}")

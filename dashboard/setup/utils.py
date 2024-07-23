@@ -104,6 +104,25 @@ def load_configuration(config_path):
     except Exception as e:
         logging.error(f"Unexpected error loading configuration from {config_path}: {e}")
         return None
+    
+def get_month_number_expr(month_col):
+    month_to_number = {month.lower(): i for i, month in enumerate(calendar.month_abbr) if month}
+    
+    month_number_expr = pl.when(pl.col(month_col).str.to_lowercase() == "jan").then(1)
+    for month, num in month_to_number.items():
+        month_number_expr = month_number_expr.when(pl.col(month_col).str.to_lowercase() == month).then(num)
+    
+    return month_number_expr.otherwise(pl.lit(None))
+
+def get_last_day_of_month(year, month):
+    return calendar.monthrange(year, month)[1]
+
+# Function to create the last day of month expression
+def get_last_day_expr(year_col, month_col):
+    return pl.struct([year_col, month_col]).map_elements(
+        lambda row: get_last_day_of_month(row["year"], row["month_number"]),
+        return_dtype=pl.Int32
+    ).alias("day")
 
 def create_long_form_dataframe(df: pl.DataFrame) -> pl.DataFrame:
     """
@@ -118,22 +137,42 @@ def create_long_form_dataframe(df: pl.DataFrame) -> pl.DataFrame:
 
     # Helper function to unpivot and clean data
     def unpivot_and_clean(data, columns, year):
-        return (data.unpivot(
+        unpivoted_data = (data.unpivot(
                     index=["part_number"], 
                     on=columns, 
                     variable_name='month', 
                     value_name='quantity_sold'
                 )
-                .with_columns([
-                    pl.lit(year).alias('year'),
-                    pl.col("month").str.replace("sales_", "").str.replace("last_", "").str.replace("_", "")
-                ])
         )
 
+        unpivoted_data = unpivoted_data.with_columns([
+            pl.lit(year).alias('year'),
+            pl.col("month").str.replace("sales_", "").str.replace("last_", "").str.replace("_", "").alias('clean_month')
+        ])
+
+        # Get the month number
+        month_number_expr = get_month_number_expr("clean_month")
+        unpivoted_data = unpivoted_data.with_columns(month_number_expr.alias("month_number"))
+
+        # Calculate the last day of each month
+        last_day_expr = get_last_day_expr(pl.col("year"), pl.col("month_number"))
+        unpivoted_data = unpivoted_data.with_columns(last_day_expr)
+
+        # Create a new column with the end of month dates
+        unpivoted_data = unpivoted_data.with_columns(
+            pl.datetime(
+                year=pl.col("year"),
+                month=pl.col("month_number"),
+                day=pl.col("day")
+            ).alias("date")
+        )
+        return unpivoted_data.drop(["clean_month"])
+
+    # Unpivot and clean the data for this year and last year
     df_this_year = unpivot_and_clean(df, this_year_sales_columns, current_year)
     df_last_year = unpivot_and_clean(df, last_year_sales_columns, last_year)
+
+    # Combine the dataframes
     df_long = pl.concat([df_this_year, df_last_year])
-    logging.debug(f"Long form dataframe shape: {df_long.shape}")
-    logging.debug(f"Long form dataframe head:\n{df_long.head()}")
 
     return df_long

@@ -2,7 +2,7 @@ import polars as pl
 from io import StringIO
 import logging
 from datetime import datetime
-from functools import reduce
+import re
 import os
 from dashboard.setup.utils import load_configuration
 
@@ -84,8 +84,10 @@ def clean_part_numbers(data_frame):
     """
     Clean and validate part numbers using vectorized operations.
     """
-    # Filter DataFrame based on valid part numbers using a regular expression pattern
+    # Define a valid pattern for part numbers (alphanumeric and hyphen, 3-15 characters long)
     valid_pattern = r'^[A-Za-z0-9-]{3,15}$'
+
+    # Filter DataFrame based on the basic valid part number pattern
     data_frame = data_frame.filter(pl.col('part_number').str.contains(valid_pattern))
 
     # Strip whitespace from both ends and replace multiple spaces with a single space
@@ -95,6 +97,18 @@ def clean_part_numbers(data_frame):
         .str.replace_all(r'\s+', ' ')  # Replace multiple spaces with a single space
         .alias('part_number')
     )
+
+    return data_frame
+
+def filter_consecutive_letters(data_frame):
+    """
+    Remove part numbers containing consecutive letters of 3 or more.
+    """
+    def has_consecutive_letters(part_number):
+        return bool(re.search(r'[A-Za-z]{3,}', part_number))
+
+    # Apply the filter function to remove invalid part numbers
+    data_frame = data_frame.filter(~pl.col('part_number').map_elements(has_consecutive_letters))
 
     return data_frame
 
@@ -158,22 +172,35 @@ def adjust_quantity(df):
 
 def update_months_no_sale(df, sales_columns):
     logging.info("Updating months_no_sale...")
-    current_month_index = datetime.now().month # Adjust for 0-based index
+    current_month_index = datetime.now().month  # Adjust for 0-based index
+    current_month_index += 12  # Account for two years of data
 
     # Select the relevant columns in reversed order up to the current month
-    months_to_count = sales_columns[:current_month_index + 12][::-1]
+    months_to_count = sales_columns[:current_month_index][::-1]
 
-    # Create an expression that represents the cumulative sum of zero sales
-    zero_sales_exprs = [
-        pl.when(pl.col(month) == 0).then(pl.lit(1)).otherwise(pl.lit(0)) for month in months_to_count
-    ]
-    zero_sales_expr = reduce(lambda x, y: x + y, zero_sales_exprs).alias('months_no_sale_computed')
+    # Define the function to count consecutive zeros
+    def count_consecutive_zeros(series):
+        data = series.to_numpy()
+        counts = []
+        for row in data:
+            count = 0
+            for sale in row:
+                if sale == 0:
+                    count += 1
+                else:
+                    break
+            counts.append(count)
+        return pl.Series(counts)
 
-    # Add the computed months_no_sale column
-    df = df.with_columns(zero_sales_expr)
+    # Use map_batches to apply the counting function on the reversed list of sales columns
+    df = df.with_columns(
+        pl.struct(months_to_count).map_batches(
+            function=count_consecutive_zeros,
+            return_dtype=pl.Int64
+        ).alias("months_no_sale_computed")
+    )
 
-    # Overwrite months_no_sale only if it's not more than 12 already
-    # Use the computed months_no_sale unless there were no sales at all (i.e., zero_sales_expr == length of months_to_count)
+    # Update the months_no_sale column with the computed values
     df = df.with_columns(
         pl.when((pl.col('months_no_sale') <= len(months_to_count)) & (pl.sum_horizontal(pl.col(sales_columns)) == 0))
             .then(len(months_to_count))
@@ -183,12 +210,10 @@ def update_months_no_sale(df, sales_columns):
                 .otherwise(pl.col('months_no_sale_computed'))
             )
             .alias('months_no_sale')
-        ).drop(['months_no_sale_computed'])
+        ).drop('months_no_sale_computed')
 
     logging.info("Update complete.")
     return df
-
-
 
 def inventory_check(df, config):
     # Extract sales columns from the configuration
@@ -216,6 +241,9 @@ def preprocess_data(data_frame, config):
     # Clean part numbers
     data_frame = clean_part_numbers(data_frame)
     logging.debug(f"Shape after cleaning part numbers: {data_frame.shape}")
+
+    data_frame = filter_consecutive_letters(data_frame)
+    logging.debug(f"Shape after cleaning part numbers for consecutive letters: {data_frame.shape}")
     
     # Merge duplicate parts
     data_frame = merge_duplicate_parts(data_frame, config)

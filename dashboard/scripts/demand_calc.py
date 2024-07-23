@@ -41,10 +41,10 @@ def calculate_demand_score(parts_data, shap_values, negative_features):
     # Adjust for negative features
     for feature in negative_features:
         if feature in parts_data.columns:
-            parts_data = parts_data.with_column((pl.col(feature) * -1).alias(feature))
+            parts_data = parts_data.with_columns((pl.col(feature) * -1).alias(feature))
 
     # Calculate weighted scores using SHAP values
-    shap_sum = np.abs(shap_values.values).sum(axis=1)
+    shap_sum = np.abs(shap_values).sum(axis=1)
     weighted_scores = pl.Series(shap_sum)
 
     # Normalize the demand score between 0 and 1
@@ -55,12 +55,16 @@ def calculate_demand_score(parts_data, shap_values, negative_features):
     demand_score_normalized = pl.Series(demand_score_normalized)
 
     # Set demand to 0 for obsolete parts
-    parts_data = parts_data.with_column(
+    parts_data = parts_data.with_columns(
         pl.when(pl.col('months_no_sale') >= 12)
         .then(0)
         .otherwise(demand_score_normalized)
         .alias('demand')
     )
+
+    for feature in negative_features:
+        if feature in parts_data.columns:
+            parts_data = parts_data.with_columns((pl.col(feature) * -1).alias(feature))
 
     return parts_data
 
@@ -78,7 +82,6 @@ def main(current_task, input_data):
         # Ensure input_data is a JSON object and load it into a Polars DataFrame
         input_json = json.loads(input_data)  # Ensure input_data is a JSON object
         parts_data = pl.DataFrame(input_json)  # Load data as a Polars DataFrame
-        print(type(parts_data))
 
         logging.info(f"Parts data loaded: {parts_data.head()}")
         logging.info(f"Parts data loaded: {parts_data.shape}")
@@ -118,21 +121,24 @@ def main(current_task, input_data):
         return
 
     try:
-        negative_features = ['months_no_sale', '1m_days_supply', '3m_days_supply', '12m_days_supply', 'days_of_inventory_outstanding']
+        negative_features = ['1m_days_supply', '3m_days_supply', '12m_days_supply', 'days_of_inventory_outstanding', 'negative_on_hand']
         # Call the calculate_demand function to get demand scores and SHAP values
-        demand_scores, shap_values = calculate_demand(input_data)
-        logging.info(f"Demand scores calculated: {demand_scores}")
+        logging.info(f"Loading the demand score model...")
+        shap_values = calculate_demand(input_data)
         logging.info(f"SHAP values calculated: {shap_values}")
 
         # Calculate demand score using the SHAP values
         parts_data = calculate_demand_score(parts_data, shap_values, negative_features)
 
-        parts_data.write_csv('/Users/skylerwilson/Desktop/PartsWise/co-pilot-v1/data/processed_data_with_demand_score.csv')
+        parts_data.write_csv('/Users/skylerwilson/Desktop/PartsWise/co-pilot-v1/data/processed_data/processed_data_with_demand_score.csv')
         logging.info(f"Processed data saved")
 
-        return parts_data
+        parts_data_json = parts_data.write_json()
+    
+        return parts_data_json
 
     except Exception as e:
         logging.error(f"Error processing data: {e}")
         return
+
 

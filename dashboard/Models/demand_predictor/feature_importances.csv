@@ -1,7 +1,9 @@
 feature,importance
-normalized_seasonal_score,0.2861293
-margin,0.034324598
-quantity,0.05829309
-months_no_sale,0.32736066
-1m_days_supply,0.037472256
-days_of_inventory_outstanding,0.25642014
+normalized_seasonal_score,0.4346211
+months_no_sale,0.13227206
+margin_percentage,0.021755548
+gross_profit,0.2641463
+12m_days_supply,0.023920465
+1m_days_supply,0.07285626
+3m_turnover,0.02696031
+sell_through_rate,0.023467913
