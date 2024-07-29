@@ -7,9 +7,9 @@ import calendar
 import warnings
 warnings.filterwarnings("ignore")
 from datetime import datetime
-from dashboard.setup.utils import load_configuration, create_long_form_dataframe, get_month_number_expr
+from dashboard.setup.utils import load_configuration, create_long_form_dataframe
 
-CONFIG_FILE = "dashboard/configuration/SeasonalConfig.json"
+CONFIG_FILE = "dashboard/configuration/InitialConfig.json"
 LOGGING_DIR = "Logs"
 
 
@@ -92,10 +92,6 @@ def calculate_annual_financial_metrics(df: pl.DataFrame) -> pl.DataFrame:
     current_month =  datetime.now().month
     this_year_sales_columns = [f'sales_{calendar.month_abbr[i].lower()}' for i in range(1, current_month + 1)]
 
-
-    current_month =  datetime.now().month
-    this_year_sales_columns = [f'sales_{calendar.month_abbr[i].lower()}' for i in range(1, current_month + 1)]
-
     df = df.with_columns(
             (pl.col('price') - pl.col('margin')).round(2).alias('cost_per_unit')
         )
@@ -147,7 +143,7 @@ def current_month_sales(df: pl.DataFrame) -> pl.Expr:
 
     return this_month_sales_sum.item()
 
-def calculate_rolling_sales(df_long, df_original):
+def calculate_rolling_sales(df_long, df_original) -> pl.DataFrame:
     """
     Calculate rolling sales, aggregate them, and join the results back to the original DataFrame.
 
@@ -241,7 +237,7 @@ def calculate_turnover(df: pl.DataFrame) -> pl.DataFrame:
     # Add both starting inventory and turnover to the DataFrame
     return df.with_columns([starting_inventory, turnover])
 
-def calculate_3mo_turnover(df):
+def calculate_3mo_turnover(df) -> pl.DataFrame:
     months_covered = datetime.now().month
     estimated_3m_orders = (pl.col('quantity_ordered_ytd') +pl.col('special_orders_ytd') / months_covered) * 3
     
@@ -369,7 +365,7 @@ def create_seasonal_component(df):
     
     return df
 
-def create_seasonal_df(df, window_size=12):
+def create_seasonal_df(df, window_size=12)-> pl.DataFrame:
     """
     Enhance a DataFrame with a rolling average and combine it with cyclical features to create a seasonal component.
 
@@ -407,7 +403,46 @@ def create_seasonal_df(df, window_size=12):
 
     return df
 
-def calculate_additional_metrics(df) -> pl.DataFrame:
+def create_sales_features(df, sales_columns) -> pl.DataFrame:
+    current_month_index = datetime.now().month
+    current_month_index += 12  # Account for two years of data
+
+    # Select the relevant columns in reversed order up to the current month
+    selected_sales_columns = sales_columns[:current_month_index]
+
+    # Create the sales_array
+    df = df.with_columns(
+        pl.concat_list([pl.col(col) for col in selected_sales_columns]).alias("sales_array")
+    )
+
+    # Calculate sales trend (using simple linear regression)
+    def calc_trend(arr):
+        n = arr.len()
+        x = pl.arange(0, n, eager=True)
+        slope = (n * (x * arr).sum() - x.sum() * arr.sum()) / (n * (x**2).sum() - x.sum()**2)
+        return slope
+
+    # Calculate volatility
+    def calc_volatility(arr):
+        mean = arr.mean()
+        return arr.std() / mean if mean != 0 else 0
+
+    # Create expressions for new columns
+    exprs = [
+        pl.col("sales_array").map_elements(calc_trend, return_dtype=pl.Float32).alias("sales_trend"),
+        pl.col("sales_array").map_elements(calc_volatility, return_dtype=pl.Float32).alias("sales_volatility"),
+        pl.col("sales_array").map_elements(lambda x: calc_trend(x.tail(3)), pl.Float32).alias("recent_sales_trend"),
+    ]
+
+    # Apply expressions to create new columns
+    df = df.with_columns(exprs)
+
+    # Remove the temporary sales_array column
+    df = df.drop("sales_array")
+
+    return df
+
+def calculate_additional_metrics(df, config) -> pl.DataFrame:
     logging.info('Starting to calculate additional metrics...')
     
     try:
@@ -455,6 +490,11 @@ def calculate_additional_metrics(df) -> pl.DataFrame:
         logging.info('Calculating order to sales ratio...')
         df = order_2_sales(df)
 
+
+        logging.info('Calculating sales trends and volitility...')
+        sales_columns = config['SalesColumns']
+        df = create_sales_features(df, sales_columns)
+
         logging.info('All calculations complete.')
         return df
 
@@ -481,7 +521,7 @@ def main(current_task, input_data):
     try:
         df = pl.read_json(StringIO(input_data))
         print('Data loaded successfully!')
-        parts_data = calculate_additional_metrics(df)
+        parts_data = calculate_additional_metrics(df, config)
         logging.info(f"Created Columns: {parts_data.columns}.")
 
         parts_data.write_csv('/Users/skylerwilson/Desktop/PartsWise/co-pilot-v1/data/processed_data/parts_data_prepared.csv')

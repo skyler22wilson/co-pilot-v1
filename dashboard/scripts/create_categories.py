@@ -6,7 +6,7 @@ from io import StringIO
 CONFIG_FILE = "dashboard/configuration/SeasonalConfig.json"
 LOGGING_DIR = "Logs"
 
-def categorizer(df):
+def categorizer(df, demand_threshold = 0.75):
     """
     Categorize inventory items based on their sales history and demand.
 
@@ -22,7 +22,7 @@ def categorizer(df):
         ValueError: If the required columns ('months_no_sale', 'demand') are not present in the DataFrame.
 
     Returns:
-        pl.DataFrame: DataFrame with an additional 'inventory_category' column indicating the category of each item.
+        pl.DataFrame: DataFrame with an additional 'part_status' column indicating the category of each item.
     """
     # Ensure that required columns are present
     required_columns = ['months_no_sale', 'demand']
@@ -30,42 +30,54 @@ def categorizer(df):
     if missing_columns:
         raise ValueError(f"Missing required columns {missing_columns} in the dataframe")
 
-    # Compute the demand threshold for a stricter cutoff
-    demand_threshold = df['demand'].quantile(0.95)
-    print(demand_threshold)
+    # Initialize the 'inventory_category' column to 'idle inventory'
+    try:
+        df = df.with_columns(pl.lit('idle').alias('part_status'))
+        logging.info("Initialized 'part_status' column")
+    except Exception as e:
+        logging.error(f"Error initializing 'part_status' column: {str(e)}")
+        raise
 
-    # Initialize the 'inventory_category' column to 'non-essential'
-    df = df.with_columns(pl.lit('non-essential').alias('inventory_category'))
+    # Assign 'essential active' category
+    try:
+        df = df.with_columns(
+            pl.when((pl.col('months_no_sale') <= 3) & (pl.col('demand') >= demand_threshold))
+            .then(pl.lit('essential'))
+            .otherwise(pl.col('part_status'))
+            .alias('part_status')
+        )
+        logging.info("Assigned 'essential' category")
+    except Exception as e:
+        logging.error(f"Error assigning 'essential' category: {str(e)}")
+        raise
 
-    # Assign 'obsolete' category
-    df = df.with_columns(
-        pl.when(pl.col('months_no_sale') >= 12)
-        .then('obsolete')
-        .otherwise(pl.col('inventory_category'))
-        .alias('inventory_category')
-    )
+    # Assign 'active parts' category
+    try:
+        df = df.with_columns(
+            pl.when((pl.col('months_no_sale') > 3) & (pl.col('months_no_sale') <= 6))
+            .then(pl.lit('active'))
+            .otherwise(pl.col('part_status'))
+            .alias('part_status')
+        )
+        logging.info("Assigned 'active' category")
+    except Exception as e:
+        logging.error(f"Error assigning 'active' category: {str(e)}")
+        raise
 
-    # Assign 'nearing_obsolete' category
-    df = df.with_columns(
-        pl.when((pl.col('months_no_sale') >= 7) & (pl.col('months_no_sale') < 12))
-        .then('nearing_obsolete')
-        .otherwise(pl.col('inventory_category'))
-        .alias('inventory_category')
-    )
+    # Assign 'obsolete inventory' category
+    try:
+        df = df.with_columns(
+            pl.when(pl.col('months_no_sale') > 12)
+            .then(pl.lit('obsolete'))
+            .otherwise(pl.col('part_status'))
+            .alias('part_status')
+        )
+        logging.info("Assigned 'obsolete' category")
+    except Exception as e:
+        logging.error(f"Error assigning 'obsolete' category: {str(e)}")
+        raise
 
-    # Assign 'essential' category based on stricter criteria
-    essential_criteria = (
-        (pl.col('months_no_sale') <= 6) &
-        (pl.col('demand') > demand_threshold)
-    )
-    df = df.with_columns(
-        pl.when(essential_criteria)
-        .then('essential')
-        .otherwise(pl.col('inventory_category'))
-        .alias('inventory_category')
-    )
-
-    return df
+    return df.select('part_number', 'part_status')
 
 def main(current_task, input_data):
     print('Creating Categories')
@@ -73,15 +85,15 @@ def main(current_task, input_data):
         # Set up logging
         log_filename = os.path.join(LOGGING_DIR, 'categorizer_script.log')
         logging.basicConfig(filename=log_filename, level=logging.INFO)
-
+        
         # Load dataset
-        original_data = pl.read_json(StringIO(input_data))
-        df = pl.DataFrame(original_data['data'], schema=original_data['columns'])
-        logging.info(f"Length of categories JSON file: {len(df)} rows")
+        df = pl.read_json(StringIO(input_data))
 
-        current_task.update_state(state='PROGRESS', meta={'message': 'Creating inventory categories...'})
+        current_task.update_state(state='PROGRESS', meta={'message': 'Creating part_status...'})
 
         df = categorizer(df)
+        logging.info(f"Categorization completed. Dataframe head: {df.head()}")
+        print(f'Categorizer Columns: {df.columns}')
 
         # Convert DataFrame to JSON string for return
         json_dataset = df.write_json()
@@ -90,6 +102,5 @@ def main(current_task, input_data):
 
     except Exception as e:
         logging.error(f"Error in processing: {str(e)}")
-        current_task.update_state(state='FAILURE', meta={'message': f'Error processing data: {str(e)}'})
         return False
 

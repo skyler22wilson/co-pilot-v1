@@ -6,6 +6,7 @@ import json
 import os 
 import calendar
 from datetime import datetime
+import joblib
 
 # Define the engine and session
 def get_engine_and_session(db_file_path):
@@ -176,3 +177,12 @@ def create_long_form_dataframe(df: pl.DataFrame) -> pl.DataFrame:
     df_long = pl.concat([df_this_year, df_last_year])
 
     return df_long
+
+def load_model_info(model_info_path, preprocessor_path, model_path):
+    with open(model_info_path, 'r') as f:
+        model_config = json.load(f)
+    
+    preprocessor = joblib.load(preprocessor_path)
+    model = joblib.load(model_path)
+    
+    return model_config, preprocessor, model

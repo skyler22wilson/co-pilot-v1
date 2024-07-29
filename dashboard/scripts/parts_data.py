@@ -1,7 +1,8 @@
 import json
 import logging
-import pandas as pd
+import polars as pl
 import os
+from io import StringIO
 
 CONFIG_FILE = "dashboard/configuration/SeasonalConfig.json"
 LOGGING_DIR = "Logs"
@@ -30,7 +31,7 @@ def filter_non_sales_columns(df, config):
     sales_columns = sales_last_year + sales_this_year
 
     columns_to_keep = [col for col in df.columns if col not in sales_columns]
-    non_sales_data = df[columns_to_keep]
+    non_sales_data = df.select(columns_to_keep)
 
     return non_sales_data
 
@@ -41,20 +42,13 @@ def parts_data_task(input_data, config):
     logging.basicConfig(filename=log_filename, level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
     try:
-        # Load and process the input data
-        original_data = json.loads(input_data)
-        dataset = pd.DataFrame(original_data['data'], columns=original_data['columns'])
+        dataset = pl.read_json(StringIO(input_data))
 
         # Filter out the sales columns
         non_sales_data = filter_non_sales_columns(dataset, config)
 
-        # Save to a feather file if needed
-        output_file_path = "/Users/skylerwilson/Desktop/PartsWise/co-pilot-v1/data/output_data/parts_data.feather"
-        non_sales_data.to_feather(output_file_path)
-        print("Parts feather file saved successfully.")
-
         # Return the non-sales data as a JSON string
-        parts_data_json = non_sales_data.to_json(orient='split')
+        parts_data_json = non_sales_data.write_json()
         return parts_data_json
 
     except ValueError as e:

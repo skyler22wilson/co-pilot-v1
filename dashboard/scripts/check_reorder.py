@@ -14,7 +14,7 @@ def calculate_safety_stock(df, service_level=0.75, max_lead_time=90, min_lead_ti
     average_lead_time_days = (min_lead_time + max_lead_time) / 2
     lead_time_std = (max_lead_time - min_lead_time) / np.sqrt(12)
     
-    daily_demand = (df['rolling_12_month_sales'] / 365) * df['demand']
+    daily_demand = (pl.col('rolling_12m_sales') / 365) * pl.col('demand')
     std_dev_demand = daily_demand.std() / 365  # Adjust this if daily_sales is not the correct column
 
     safety_stock = z_score * (std_dev_demand * np.sqrt(average_lead_time_days) + daily_demand * lead_time_std)
@@ -28,11 +28,11 @@ def calculate_safety_stock(df, service_level=0.75, max_lead_time=90, min_lead_ti
     return df
 
 def calculate_reorder_point(df, min_lead_time=10, max_lead_time=90):
-    daily_demand = (df['rolling_12_month_sales'] / 365) * df['demand']
+    daily_demand = (pl.col('rolling_12m_sales') / 365) * pl.col('demand')
     average_lead_time_days = (min_lead_time + max_lead_time) / 2
     lead_time_demand = daily_demand * average_lead_time_days
 
-    reorder_point = (lead_time_demand + df['safety_stock']).cast(pl.Int32)
+    reorder_point = (lead_time_demand + pl.col('safety_stock')).cast(pl.Int32)
     df = df.with_columns(
         reorder_point.alias('reorder_point')
     )
@@ -40,7 +40,7 @@ def calculate_reorder_point(df, min_lead_time=10, max_lead_time=90):
         pl.when(pl.col('months_no_sale') >= 12).then(0).otherwise(pl.col('reorder_point')).alias('reorder_point')
     )
 
-    return df
+    return df.select('part_number', 'safety_stock', 'reorder_point')
 
 def main(current_task, input_data):
     print('Reorder Point Script Running...')
@@ -52,17 +52,15 @@ def main(current_task, input_data):
 
     try:
         print('loading data...')
+        print(f'Input data type: {type(input_data)}')
         df = pl.read_json(StringIO(input_data))
+        print(df.head())
 
         print('dataset loaded. Loading month data now...')
         # Calculate safety stock and reorder points
         df = calculate_safety_stock(df)
         df = calculate_reorder_point(df)
         
-        # Save to Feather format
-        df.write_ipc("/Users/skylerwilson/Desktop/PartsWise/co-pilot-v1/data/processed_data/parts_data.feather")
-        
-        logging.info(f"Length of reorder JSON file: {len(df)} rows")
         
         # Convert DataFrame to JSON
         json_data = df.write_json()
@@ -71,11 +69,9 @@ def main(current_task, input_data):
 
     except ValueError as e:
         logging.error(f"Invalid JSON format: {e}")
-        current_task.update_state(state='FAILURE', meta={'progress': 0, 'message': f'Error processing data: Invalid file format.'})
         return False
     except Exception as e:
         logging.error(f"Error in processing: {str(e)}")
-        current_task.update_state(state='FAILURE', meta={'progress': 0, 'message': f'Error processing data: {str(e)}'})
         return False
 
 

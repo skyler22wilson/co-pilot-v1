@@ -1,31 +1,45 @@
 {
     "selected_features": [
-        "quantity",
-        "margin",
-        "quantity_ordered_ytd",
-        "special_orders_ytd",
-        "negative_on_hand",
-        "total_cost",
-        "margin_percentage",
-        "gross_profit",
-        "roi",
-        "annual_days_supply",
-        "three_month_days_supply",
-        "one_month_days_supply",
-        "three_month_turnover",
-        "one_month_turnover",
-        "sell_through_rate",
+        "turnover",
+        "3m_turnover",
         "days_of_inventory_outstanding",
-        "order_to_sales_ratio",
-        "seasonal_component"
+        "sales_trend"
     ],
     "best_hyperparameters": {
-        "n_estimators": 200,
-        "min_samples_split": 15,
-        "min_samples_leaf": 10,
-        "min_impurity_decrease": 0.0001,
-        "max_features": "sqrt",
-        "max_depth": 7,
-        "bootstrap": true
+        "n_estimators": 168,
+        "max_depth": 3,
+        "learning_rate": 0.05801045573410273,
+        "subsample": 0.9086494574611749,
+        "colsample_bytree": 0.9509923947062636,
+        "reg_alpha": 1.6904019153652778,
+        "reg_lambda": 0.15124091922684998,
+        "min_child_weight": 4
+    },
+    "best_calibration_method": "sigmoid",
+    "calibration_scores": {
+        "sigmoid": {
+            "brier_score": 0.02633611819480234,
+            "log_loss": 0.10867486894419753,
+            "auc": 0.9878588628045859,
+            "precision": 0.9778481012658228,
+            "recall": 0.939209726443769,
+            "f1": 0.958139534883721
+        },
+        "isotonic": {
+            "brier_score": 0.025589388012086257,
+            "log_loss": 0.13479442111338044,
+            "auc": 0.9874669403544784,
+            "precision": 0.9808917197452229,
+            "recall": 0.9361702127659575,
+            "f1": 0.9580093312597201
+        },
+        "null": {
+            "brier_score": 0.3582092598831217,
+            "log_loss": 1.302660821532265,
+            "auc": 0.5066880579255743,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+        }
     }
 }

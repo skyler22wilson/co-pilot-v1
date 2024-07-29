@@ -5,6 +5,7 @@ import joblib
 import logging
 import shap
 import json
+from io import StringIO
 
 # Initialize logging
 log_path = 'Logs/demand_predictor_logfile.log'
@@ -16,10 +17,11 @@ FINAL_MODEL_PATH = '/Users/skylerwilson/Desktop/PartsWise/co-pilot-v1/dashboard/
 def preprocess_data(input_data):
     """ Load and preprocess data from JSON input. """
     logging.info("Loading and preprocessing data for demand model...")
+    input_data_json = json.loads(input_data)
     try:
-        if isinstance(input_data, str):
+        if isinstance(input_data_json, str):
             logging.info(f"Input data received: {input_data[:500]}")  # Log first 500 characters of input data
-            parts_data = pl.read_json(input_data)
+            parts_data = pl.read_json(StringIO(input_data))
         elif isinstance(input_data, dict):
             logging.info("Input data received as a dictionary")
             parts_data = pl.DataFrame(input_data)

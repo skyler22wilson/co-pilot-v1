@@ -6,7 +6,7 @@ from dashboard.scripts.demand_calc import main as create_demand_score
 from dashboard.scripts.create_categories import main as create_categories
 from dashboard.scripts.check_reorder import main as calculate_reorder
 from dashboard.models.obsolecence_predictor.obsolete_predictor import main as obsolescence_risk
-from dashboard.scripts.monthly_sales import main as monthly_sales
+from dashboard.scripts.monthly_sales import create_monthly_sales as monthly_sales
 from dashboard.scripts.parts_data import main as get_parts_data
 from dashboard.scripts.db_setup import main as build_database
 from functools import reduce
@@ -88,47 +88,56 @@ def obsolescence_risk_task(self, input_data):
 @app.task(bind=True)
 def aggregate_results(self, data_from_previous_tasks):
     """Aggregate results from multiple tasks and apply post-aggregation filtering."""
-    dataframes = []
+    logging.info(f"Number of tasks received: {len(data_from_previous_tasks)}")
 
+    dataframes = []
+    #original_df = pl.read_json(StringIO(json.loads(original_data))) if isinstance(original_data, str) else pl.DataFrame(original_data)
     for idx, data in enumerate(data_from_previous_tasks):
         try:
-            # Check the structure of the JSON string before converting to DataFrame
-            json_data = json.loads(data)
-            columns = json_data.get("columns")
-            index = json_data.get("index")
-            data_values = json_data.get("data")
+            logging.info(f"Processing data from task {idx}")
+            logging.info(f"Type of data: {type(data)}")
+            
+            if isinstance(data, str):
+                # If it's a string, parse it as JSON
+                parsed_data = json.loads(data)
+            else:
+                # If it's already a list or dict, use it directly
+                parsed_data = data
 
-            if not columns or not data_values:
-                raise ValueError(f"Missing columns or data in DataFrame {idx}")
-
-            df = pl.DataFrame(data_values, schema=columns)
+            # Convert the list of dictionaries to a Polars DataFrame
+            df = pl.DataFrame(parsed_data)
+            
             dataframes.append(df)
             logging.info(f"DataFrame {idx} shape: {df.shape}")
-
+            logging.info(f"DataFrame {idx} columns: {df.columns}")
         except Exception as e:
-            logging.error(f"Error processing DataFrame {idx}: {e}")
-            logging.error(f"Problematic data content: {data}")
+            logging.error(f"Error processing data from task {idx}: {e}")
+            logging.error(f"Problematic data content: {str(data)[:1000]}...")  # Convert to string before slicing
             raise
 
-    def merge_dfs(left, right):
-        overlapping_columns = left.columns.intersection(right.columns).to_list()
-        overlapping_columns.remove('part_number')
-        right_adjusted = right.drop(columns=overlapping_columns)
-        return left.join(right_adjusted, on='part_number', how='outer')
-
     try:
-        aggregated_data = reduce(merge_dfs, dataframes)
+        # Merge all dataframes from parallel tasks
+        concat_df = pl.concat(dataframes, how="align")
+        
+        # Group by 'part_number' and aggregate
+        aggregated_df = concat_df.group_by('part_number').agg([
+            pl.all().exclude('part_number').first()
+        ])
 
-        # Apply filtering logic after aggregation
-        filtered_aggregated_data = aggregated_data.filter(
-            (pl.col('quantity') > 0) | (pl.col('negative_on_hand') != 0)
-        )
-        filtered_json = filtered_aggregated_data.to_json()
+        logging.info(f'Aggregated DF columns: {aggregated_df.columns}')
 
-        logging.info(f"Length of filtered aggregated JSON file: {len(filtered_aggregated_data)} rows")
+
+        aggregated_df.write_csv("/Users/skylerwilson/Desktop/PartsWise/co-pilot-v1/data/processed_data/processed_data_final.csv")
+
+        filtered_json = aggregated_df.write_json()
+
+        logging.info(f"Length of filtered aggregated JSON file: {len(aggregated_df)} rows")
+        logging.info(f"Columns in final DataFrame: {aggregated_df.columns}")
         return filtered_json
     except Exception as e:
         logging.error(f"Error during aggregation: {e}")
+        logging.error(f"DataFrames shapes: {[df.shape for df in dataframes]}")
+        logging.error(f"DataFrames columns: {[df.columns for df in dataframes]}")
         raise
 
 @app.task(bind=True)
@@ -173,15 +182,15 @@ def start_pipeline(self, data):
         create_demand_score_task.s()
     )
 
-    # First group of parallel tasks wrapped in a chord to ensure synchronization
+
     categorization_group = chord(
-        group(
-            categorization_task.s(),
-            reordering_task.s(),
-            obsolescence_risk_task.s(),
-        ),
-        aggregate_results.s()  # This is the callback for the chord
-    )
+            group(
+                categorization_task.s(),
+                reordering_task.s(),
+                obsolescence_risk_task.s(),
+            ),
+            aggregate_results.s()  # Remove original_data from here
+        )
 
     # Final group of tasks that depends on the output of the categorization group
     data_group = chord(
