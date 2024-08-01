@@ -118,6 +118,9 @@ def get_month_number_expr(month_col):
 def get_last_day_of_month(year, month):
     return calendar.monthrange(year, month)[1]
 
+def get_month_name_expr(month_number_col):
+    return month_number_col.map_elements(lambda x: calendar.month_name[x] if x is not None else None, return_dtype=pl.String).alias("month_name")
+
 # Function to create the last day of month expression
 def get_last_day_expr(year_col, month_col):
     return pl.struct([year_col, month_col]).map_elements(
@@ -126,9 +129,6 @@ def get_last_day_expr(year_col, month_col):
     ).alias("day")
 
 def create_long_form_dataframe(df: pl.DataFrame) -> pl.DataFrame:
-    """
-    Convert a wide-format DataFrame containing monthly sales data into a long-format DataFrame.
-    """
     current_year = datetime.now().year
     last_year = current_year - 1
     current_month_index = datetime.now().month
@@ -136,7 +136,6 @@ def create_long_form_dataframe(df: pl.DataFrame) -> pl.DataFrame:
     this_year_sales_columns = [f'sales_{calendar.month_abbr[i].lower()}' for i in range(1, current_month_index + 1)]
     last_year_sales_columns = [f'sales_last_{calendar.month_abbr[i].lower()}' for i in range(1, 13)]
 
-    # Helper function to unpivot and clean data
     def unpivot_and_clean(data, columns, year):
         unpivoted_data = (data.unpivot(
                     index=["part_number"], 
@@ -151,15 +150,12 @@ def create_long_form_dataframe(df: pl.DataFrame) -> pl.DataFrame:
             pl.col("month").str.replace("sales_", "").str.replace("last_", "").str.replace("_", "").alias('clean_month')
         ])
 
-        # Get the month number
         month_number_expr = get_month_number_expr("clean_month")
         unpivoted_data = unpivoted_data.with_columns(month_number_expr.alias("month_number"))
 
-        # Calculate the last day of each month
         last_day_expr = get_last_day_expr(pl.col("year"), pl.col("month_number"))
         unpivoted_data = unpivoted_data.with_columns(last_day_expr)
 
-        # Create a new column with the end of month dates
         unpivoted_data = unpivoted_data.with_columns(
             pl.datetime(
                 year=pl.col("year"),
@@ -167,15 +163,19 @@ def create_long_form_dataframe(df: pl.DataFrame) -> pl.DataFrame:
                 day=pl.col("day")
             ).alias("date")
         )
+
+        unpivoted_data = unpivoted_data.with_columns([
+            pl.col("date").dt.strftime("%b").alias("month_name")
+        ])
+
         return unpivoted_data.drop(["clean_month"])
 
-    # Unpivot and clean the data for this year and last year
     df_this_year = unpivot_and_clean(df, this_year_sales_columns, current_year)
     df_last_year = unpivot_and_clean(df, last_year_sales_columns, last_year)
 
-    # Combine the dataframes
     df_long = pl.concat([df_this_year, df_last_year])
-
+    df_long = df_long.drop(["day", "month"]).rename({'month_name': 'month'})
+    
     return df_long
 
 def load_model_info(model_info_path, preprocessor_path, model_path):

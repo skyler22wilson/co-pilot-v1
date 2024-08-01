@@ -1,0 +1,93 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "description": "Schema for auto parts inventory analysis",
+    "properties": {
+        "parts": {
+            "description": "Contains detailed information about each part, including the part number, description, supplier name, price, and cost per unit. Use this table for detailed part information.",
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "part_number": {"type": "string", "description": "Unique identifier for each part (lowercased)"},
+                    "description": {"type": "string", "description": "Description of the part (lowercased)"},
+                    "supplier_name": {"type": "string", "description": "Name of the supplier for each part (lowercased) use for queries mentioning 'brand'."},
+                    "price": {"type": "number", "description": "Price of each part"},
+                    "cost_per_unit": {"type": "number", "description": "Cost per unit of each part"}
+                },
+                "required": ["part_number", "description", "supplier_name", "price", "cost_per_unit"]
+            }
+        },
+        "inventory": {
+            "description": "Tracks the inventory levels of parts, including the part number, quantity on hand, safety stock levels, reorder points, part status, and other related metrics. Use this table to monitor inventory levels and stock status.",
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "part_number": {"type": "string", "description": "Unique identifier for each part (lowercased)"},
+                    "quantity": {"type": "number", "description": "Quantity of each part in stock"},
+                    "reorder_point": {"type": "number", "description": "Stock level at which the part should be reordered"},
+                    "safety_stock": {"type": "number", "description": "Safety stock level to prevent stockouts"},
+                    "negative_on_hand": {"type": "number", "description": "Parts where negative on-hand is greater than 0"},
+                    "part_status": {"type": "string", "description": "Status of the inventory (e.g., essential, active, idle, obsolete)"}
+                },
+                "required": ["part_number", "quantity", "reorder_point", "safety_stock", "negative_on_hand", "part_status"]
+            }
+        },
+        "metrics": {
+            "description": "Provides various performance metrics for parts, including ROI, demand, obsolescence risk, days of inventory outstanding, sell-through rate, and order-to-sales ratio. Use this table to analyze part performance and risk.",
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "part_number": {"type": "string", "description": "Unique identifier for each part (lowercased)"},
+                    "roi": {"type": "number", "description": "Return on investment for each part"},
+                    "demand": {"type": "number", "description": "Demand for the part"},
+                    "obsolescence_risk": {"type": "number", "description": "Risk of the part becoming obsolete"},
+                    "days_of_inventory_outstanding": {"type": "number", "description": "Number of days inventory is held"},
+                    "sell_through_rate": {"type": "number", "description": "Rate at which inventory is sold"},
+                    "order_to_sales_ratio": {"type": "number", "description": "Ratio of orders to sales"}
+                },
+                "required": ["part_number", "roi", "demand", "obsolescence_risk", "days_of_inventory_outstanding", "sell_through_rate", "order_to_sales_ratio"]
+            }
+        },
+        "temporal": {
+            "description": "Contains time-based performance metrics for parts, including months with no sales, sales volatility, sales trend, recent sales trend, days of supply (for different periods), and turnover rates. Use this table for temporal analysis of part performance.",
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "part_number": {"type": "string", "description": "Unique identifier for each part (lowercased)"},
+                    "months_no_sale": {"type": "number", "description": "Number of months with no sales"},
+                    "sales_volatility": {"type": "number", "description": "Measure of sales volatility"},
+                    "sales_trend": {"type": "number", "description": "Overall sales trend"},
+                    "recent_sales_trend": {"type": "number", "description": "Recent sales trend"},
+                    "12m_days_supply": {"type": "number", "description": "12-month days of supply"},
+                    "3m_days_supply": {"type": "number", "description": "3-month days of supply"},
+                    "1m_days_supply": {"type": "number", "description": "1-month days of supply"},
+                    "3m_turnover": {"type": "number", "description": "3-month inventory turnover"},
+                    "turnover": {"type": "number", "description": "Overall inventory turnover"}
+                },
+                "required": ["part_number", "months_no_sale", "sales_volatility", "sales_trend", "recent_sales_trend", "12m_days_supply", "3m_days_supply", "1m_days_supply", "3m_turnover", "turnover"]
+            }
+        },
+        "sales": {
+            "description": "Records sales data for parts, including the part number, month, year, and quantity sold. Use this table for time-based sales data and sales trend analysis. Months are title case (e.g., January)",
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "part_number": {"type": "string", "description": "Unique identifier for each part (lowercased)"},
+                    "month": {"type": "string", "description": "Month of the sale (e.g., January)"},
+                    "year": {"type": "string", "description": "Year of the sale"},
+                    "quantity_sold": {"type": "number", "description": "Quantity of parts sold"}
+                },
+                "required": ["part_number", "month", "year", "quantity_sold"]
+            }
+        }
+    },
+    "required": ["parts", "inventory", "metrics", "temporal", "sales"]
+}
+
+
+

@@ -155,9 +155,9 @@ def calculate_rolling_sales(df_long, df_original) -> pl.DataFrame:
         pl.DataFrame: Original DataFrame enriched with aggregated rolling sales data.
     """
     # Ensure the data is sorted by part_number and date
-    df_long = df_long.sort(by=["part_number", "date"])
+    df_long = df_long.select(['part_number', 'date', 'quantity_sold']).sort(by=["part_number", "date"])
 
-    # Calculate rolling sales
+    # Calculate rolling sales with minimal data copies
     df_rolling = df_long.with_columns([
         pl.col("quantity_sold").rolling_sum(window_size=3, min_periods=1).over("part_number").alias("rolling_3m_sales"),
         pl.col("quantity_sold").rolling_sum(window_size=12, min_periods=1).over("part_number").alias("rolling_12m_sales")
