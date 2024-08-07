@@ -72,7 +72,9 @@ def create_metrics_df(df):
         - sell_through_rate: Rate at which inventory is sold
         - order_to_sales_ratio: Ratio of orders to sales
     """
-    metrics_df = df.select(['part_number', 'roi', 'demand', 'obsolescence_risk', 'days_of_inventory_outstanding', 'sell_through_rate', 'order_to_sales_ratio'])
+    metrics_df = df.select(['part_number', 'roi', 'demand', 'obsolescence_risk', 'days_of_inventory_outstanding', 
+                            'sell_through_rate', 'order_to_sales_ratio', 'seasonality_strength', 'consistency', 
+                            'anomaly_score', 'recurrence_score'])
     return metrics_df
 
 def create_temporal_metrics(df):

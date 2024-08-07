@@ -61,6 +61,10 @@ class PartMetrics(Base):
     days_of_inventory_outstanding = Column(Integer)
     sell_through_rate = Column(Float(precision=4))
     order_to_sales_ratio = Column(Float(precision=4))
+    seasonality_strength = Column(Float(precision=4))
+    consistency = Column(Float(precision=4))
+    anomaly_score = Column(Float(precision=4))
+    recurrence_score = Column(Float(precision=4))
     last_updated = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     __table_args__ = (
         Index('idx_metrics_risk_demand', 'obsolescence_risk', 'demand'),
