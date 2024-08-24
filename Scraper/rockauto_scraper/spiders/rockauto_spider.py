@@ -1,7 +1,5 @@
 import scrapy
-from scrapy.spiders import CrawlSpider, Rule
-from scrapy.linkextractors import LinkExtractor
-import csv
+from scrapy.spiders import CrawlSpider
 import json
 import os
 from fake_useragent import UserAgent
@@ -38,62 +36,101 @@ class CheckpointSystem:
 class RockAutoURLSpider(CrawlSpider):
     name = 'rockauto_urls'
     allowed_domains = ['rockauto.com']
+    TARGET_MAKES = ['toyota']  # Add more makes if needed
 
-    def __init__(self, makes='toyota', start_year=2000, end_year=2024, checkpoint_file='scraping_checkpoint.json', *args, **kwargs):
+    def __init__(self, checkpoint_file='scraping_checkpoint.json', *args, **kwargs):
         super(RockAutoURLSpider, self).__init__(*args, **kwargs)
-        self.makes = makes.split(',')
-        self.start_year = int(start_year)
-        self.end_year = int(end_year)
-        self.checkpoint = CheckpointSystem(checkpoint_file)
         self.ua = UserAgent()
-        
-        self.start_urls = [f'https://www.rockauto.com/en/catalog/{make}' for make in self.makes]
+        self.base_url = "https://www.rockauto.com/en/catalog/"
+        self.checkpoint = CheckpointSystem(checkpoint_file)
 
-        make_pattern = '|'.join(self.makes)
-        year_pattern = '|'.join(str(year) for year in range(self.start_year, self.end_year + 1))
-        
-        self.rules = (
-            Rule(LinkExtractor(allow=rf'/en/catalog/({make_pattern}),({year_pattern})$'), callback='parse_year', follow=True),
-            Rule(LinkExtractor(allow=rf'/en/catalog/({make_pattern}),({year_pattern}),[^,]+$'), callback='parse_model', follow=True),
-            Rule(LinkExtractor(allow=rf'/en/catalog/({make_pattern}),({year_pattern}),[^,]+,[^,]+$'), callback='parse_engine', follow=True),
-            Rule(LinkExtractor(allow=rf'/en/catalog/({make_pattern}),({year_pattern}),[^,]+,[^,]+,[^,]+$'), callback='parse_category', follow=True),
-            Rule(LinkExtractor(allow=rf'/en/catalog/({make_pattern}),({year_pattern}),[^,]+,[^,]+,[^,]+,[^,]+$'), callback='parse_subcategory', follow=True),
-        )
+    def start_requests(self):
+        make_urls = self.get_make_urls()
+        for url in make_urls:
+            self.logger.info(f"Starting request for URL: {url}")
+            yield scrapy.Request(url, headers={'User-Agent': self.ua.random}, callback=self.parse_make)
 
-        self.url_file = open('rockauto_urls.csv', 'w', newline='')
-        self.url_writer = csv.writer(self.url_file)
-        self.url_writer.writerow(['URL', 'Depth', 'Make', 'Year'])
+    def get_make_urls(self):
+        return [f"{self.base_url}{make.lower().replace(' ', '+')}" for make in self.TARGET_MAKES]
 
-    def parse_year(self, response):
-        self.logger.info(f"Processing Year Page: {response.url}")
+    def parse_make(self, response):
         year_urls = self.get_year_urls(response.url)
         for url in year_urls:
-            yield scrapy.Request(url, headers={'User-Agent': self.ua.random}, callback=self.parse_model)
+            yield scrapy.Request(url, headers={'User-Agent': self.ua.random}, callback=self.parse_year)
 
-    def parse_model(self, response):
-        self.logger.info(f"Processing Model Page: {response.url}")
+    def get_year_urls(self, make_url):
+        current_year = datetime.now().year
+        return [f"{make_url},{year}" for year in range(current_year, 1999, -1)]
+
+    def parse_year(self, response):
         model_urls = self.get_model_urls(response)
         for url in model_urls:
-            yield scrapy.Request(url, headers={'User-Agent': self.ua.random}, callback=self.parse_engine)
+            yield scrapy.Request(url, headers={'User-Agent': self.ua.random}, callback=self.parse_model)
+
+    def get_model_urls(self, response):
+        model_links = response.xpath("//a[@class='navlabellink']/@href").extract()
+        base_path = urlparse(response.url).path
+        
+        return [urljoin(response.url, link) for link in model_links 
+                if len(urlparse(link).path.split(',')) == 3 
+                and urlparse(link).path.split(',')[2] not in base_path]
+
+    def parse_model(self, response):
+        engine_urls = self.get_engine_urls(response)
+        for engine in engine_urls:
+            yield scrapy.Request(engine['url'], headers={'User-Agent': self.ua.random}, callback=self.parse_engine, meta={'engine_name': engine['name']})
+
+    def get_engine_urls(self, response):
+        engine_tds = response.xpath("//td[@class='nlabel']")
+        base_path = urlparse(response.url).path
+        
+        return [{'name': link.xpath("text()").get().strip(), 'url': urljoin(response.url, link.xpath("@href").get())}
+                for td in engine_tds
+                for link in td.xpath(".//a[@class='navlabellink']")
+                if len(urlparse(link.xpath("@href").get()).path.split(',')) > 3
+                and urlparse(link.xpath("@href").get()).path.split(',')[3] not in base_path]
 
     def parse_engine(self, response):
-        self.logger.info(f"Processing Engine Page: {response.url}")
-        engine_urls = self.get_engine_urls(response)
-        for url in engine_urls:
-            yield scrapy.Request(url['url'], headers={'User-Agent': self.ua.random}, callback=self.parse_category)
+        category_urls = self.get_category_urls(response)
+        for category in category_urls:
+            yield scrapy.Request(category['url'], headers={'User-Agent': self.ua.random}, callback=self.parse_category, 
+                                 meta={'engine_name': response.meta['engine_name'], 'category_name': category['name']})
+
+    def get_category_urls(self, response):
+        category_links = response.xpath("//a[@class='navlabellink']/@href").extract()
+        base_path = urlparse(response.url).path
+        
+        return [{'name': response.xpath(f"//a[@href='{link}']/text()").get().strip(), 'url': urljoin(response.url, link)}
+                for link in category_links
+                if len(urlparse(link).path.split(',')) == 6
+                and urlparse(link).path.split(',')[5] not in base_path]
 
     def parse_category(self, response):
-        self.logger.info(f"Processing Category Page: {response.url}")
-        category_urls = self.get_category_urls(response)
-        for url in category_urls:
-            yield scrapy.Request(url['url'], headers={'User-Agent': self.ua.random}, callback=self.parse_subcategory)
+        subcategory_urls = self.get_subcategory_urls(response)
+        for subcategory in subcategory_urls:
+            yield scrapy.Request(subcategory['url'], headers={'User-Agent': self.ua.random}, callback=self.parse_subcategory,
+                                 meta={'engine_name': response.meta['engine_name'], 
+                                       'category_name': response.meta['category_name'],
+                                       'subcategory_name': subcategory['name']})
+
+    def get_subcategory_urls(self, response):
+        subcategory_tds = response.xpath("//td[@class='nlabel']")
+        base_path = urlparse(response.url).path
+        
+        return [{'name': td.xpath("text()").get().strip(), 'url': urljoin(response.url, link.xpath("@href").get())}
+                for td in subcategory_tds
+                for link in td.xpath(".//a[@class='navlabellink']")
+                if len(urlparse(link.xpath("@href").get()).path.split(',')) == 8
+                and urlparse(link.xpath("@href").get()).path.split(',')[7] not in base_path]
 
     def parse_subcategory(self, response):
-        self.logger.info(f"Processing Subcategory Page: {response.url}")
+        if self.is_banned(response):
+            self.handle_ban()
+            return
+
         fitment_data = self.scrape_fitment_data(response)
-        if fitment_data:
-            for part in fitment_data:
-                yield part
+        for part in fitment_data:
+            yield part
 
     def extract_info_from_url(self, url):
         parts = urlparse(url).path.split(',')
@@ -126,61 +163,7 @@ class RockAutoURLSpider(CrawlSpider):
         
         return all_parts
 
-    def get_model_urls(self, response):
-        model_links = response.xpath("//a[@class='navlabellink']/@href").extract()
-        base_path = urlparse(response.url).path
-        
-        return [urljoin(response.url, link) for link in model_links 
-                if len(urlparse(link).path.split(',')) == 3 
-                and urlparse(link).path.split(',')[2] not in base_path]
-
-    def get_engine_urls(self, response):
-        engine_tds = response.xpath("//td[@class='nlabel']")
-        base_path = urlparse(response.url).path
-        
-        return [{'name': link.xpath("text()").get().strip(), 'url': urljoin(response.url, link.xpath("@href").get())}
-                for td in engine_tds
-                for link in td.xpath(".//a[@class='navlabellink']")
-                if len(urlparse(link.xpath("@href").get()).path.split(',')) > 3
-                and urlparse(link.xpath("@href").get()).path.split(',')[3] not in base_path]
-
-    def get_category_urls(self, response):
-        category_links = response.xpath("//a[@class='navlabellink']/@href").extract()
-        base_path = urlparse(response.url).path
-        
-        return [{'name': response.xpath(f"//a[@href='{link}']/text()").get().strip(), 'url': urljoin(response.url, link)}
-                for link in category_links
-                if len(urlparse(link).path.split(',')) == 6
-                and urlparse(link).path.split(',')[5] not in base_path]
-
-    def get_subcategory_urls(self, response):
-        subcategory_tds = response.xpath("//td[@class='nlabel']")
-        base_path = urlparse(response.url).path
-        
-        return [{'name': td.xpath("text()").get().strip(), 'url': urljoin(response.url, link.xpath("@href").get())}
-                for td in subcategory_tds
-                for link in td.xpath(".//a[@class='navlabellink']")
-                if len(urlparse(link.xpath("@href").get()).path.split(',')) == 8
-                and urlparse(link.xpath("@href").get()).path.split(',')[7] not in base_path]
-    def start_requests(self):
-        for url in self.start_urls:
-            yield scrapy.Request(url, headers={'User-Agent': self.ua.random})
-
-    def parse_url(self, response):
-        url = response.url
-        parts = url.split(',')
-        depth = len(parts) - 1
-        make = parts[0].split('/')[-1]
-        year = parts[1] if len(parts) > 1 else ''
-
-        if make in self.makes and self.start_year <= int(year) <= self.end_year:
-            self.url_writer.writerow([url, depth, make, year])
-            self.logger.info(f'Extracted URL: {url} (Depth: {depth}, Make: {make}, Year: {year})')
-            self.checkpoint.save_checkpoint(make, int(year))
-            return {'url': url, 'depth': depth, 'make': make, 'year': year}
-        
     def is_banned(self, response):
-
         if response.status in [403, 429]:
             self.logger.warning(f"Request was banned with status code: {response.status}")
             return True
@@ -193,19 +176,15 @@ class RockAutoURLSpider(CrawlSpider):
 
     def handle_ban(self):
         self.logger.warning("Ban detected. Pausing the scraper...")
-        
-        # Save checkpoint with pause state
         self.checkpoint.save_checkpoint(paused=True, paused_at=datetime.now().isoformat())
-
-        # Pause the crawler
         self.crawler.engine.pause()
 
-
-    def process_request(self, request, spider):
-        request.headers['User-Agent'] = self.ua.random
-        if self.current_proxy:
-            request.meta['proxy'] = self.current_proxy
-        return request
-
-    def closed(self, reason):
-        self.url_file.close()
+    def process_exception(self, response, exception, spider):
+        if isinstance(exception, scrapy.exceptions.IgnoreRequest):
+            self.logger.warning(f"Request ignored: {response.url}")
+        elif isinstance(exception, scrapy.exceptions.CloseSpider):
+            self.logger.error(f"Spider closed: {exception}")
+            self.checkpoint.save_checkpoint(paused=True, paused_at=datetime.now().isoformat())
+        else:
+            self.logger.error(f"Unhandled exception: {exception}")
+        return None
