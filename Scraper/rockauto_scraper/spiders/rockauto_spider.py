@@ -6,6 +6,8 @@ import json
 import os
 from fake_useragent import UserAgent
 from urllib.parse import urlparse, urljoin
+from datetime import datetime
+import time
 
 class CheckpointSystem:
     def __init__(self, checkpoint_file):
@@ -177,6 +179,34 @@ class RockAutoURLSpider(CrawlSpider):
             self.logger.info(f'Extracted URL: {url} (Depth: {depth}, Make: {make}, Year: {year})')
             self.checkpoint.save_checkpoint(make, int(year))
             return {'url': url, 'depth': depth, 'make': make, 'year': year}
+        
+    def is_banned(self, response):
+
+        if response.status in [403, 429]:
+            self.logger.warning(f"Request was banned with status code: {response.status}")
+            return True
+        banned_phrases = ["Access denied", "You have been blocked", "Your IP has been blocked", "403 Forbidden", "429 Too Many Requests"]
+        for phrase in banned_phrases:
+            if phrase in response.text:
+                self.logger.warning(f"Banned phrase detected in response: '{phrase}'")
+                return True
+        return False
+
+    def handle_ban(self):
+        self.logger.warning("Ban detected. Pausing the scraper...")
+        
+        # Save checkpoint with pause state
+        self.checkpoint.save_checkpoint(paused=True, paused_at=datetime.now().isoformat())
+
+        # Pause the crawler
+        self.crawler.engine.pause()
+
+
+    def process_request(self, request, spider):
+        request.headers['User-Agent'] = self.ua.random
+        if self.current_proxy:
+            request.meta['proxy'] = self.current_proxy
+        return request
 
     def closed(self, reason):
         self.url_file.close()
