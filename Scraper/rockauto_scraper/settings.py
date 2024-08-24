@@ -52,6 +52,7 @@ SPIDER_MIDDLEWARES = {
 DOWNLOADER_MIDDLEWARES = {
     "rockauto_scraper.middlewares.RockautoScraperDownloaderMiddleware": 543,
     'scrapy.downloadermiddlewares.useragent.UserAgentMiddleware': None,
+    'scrapy_user_agents.middlewares.RandomUserAgentMiddleware': 400,
 }
 
 # Enable or disable extensions
@@ -65,7 +66,7 @@ EXTENSIONS = {
 # Configure item pipelines
 # See https://docs.scrapy.org/en/latest/topics/item-pipeline.html
 ITEM_PIPELINES = {
-    "rockauto_scraper.pipelines.RockautoScraperPipeline": 300,
+    "rockauto_scraper.pipelines.RockautoPipeline": 300,
 }
 
 # Enable and configure the AutoThrottle extension (disabled by default)
