@@ -10,7 +10,7 @@ from itemadapter import ItemAdapter
 
 import csv
 
-class RockAutoPipeline:
+class RockAutoScraperPipeline:
     def __init__(self):
         self.file = open('rockauto_data.csv', 'w', newline='')
         self.writer = csv.DictWriter(self.file, fieldnames=['make', 'year', 'model', 'engine', 'category', 'subcategory', 'part_number', 'description'])

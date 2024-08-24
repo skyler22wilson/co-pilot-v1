@@ -7,7 +7,6 @@ import os
 from fake_useragent import UserAgent
 from urllib.parse import urlparse, urljoin
 from datetime import datetime
-import time
 
 class CheckpointSystem:
     def __init__(self, checkpoint_file):

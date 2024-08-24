@@ -65,7 +65,7 @@ EXTENSIONS = {
 # Configure item pipelines
 # See https://docs.scrapy.org/en/latest/topics/item-pipeline.html
 ITEM_PIPELINES = {
-    "rockauto_scraper.pipelines.RockautoPipeline": 300,
+    "rockauto_scraper.pipelines.RockAutoScraperPipeline": 300,
 }
 
 # Enable and configure the AutoThrottle extension (disabled by default)
