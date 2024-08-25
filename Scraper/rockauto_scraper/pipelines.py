@@ -53,11 +53,15 @@ class RockAutoScraperPipeline:
                 df[column] = None
 
         if os.path.exists(filepath):
+            # Read existing CSV file
             existing_df = pd.read_csv(filepath)
+            
             # Ensure existing DataFrame has all required columns
             for column in required_columns:
                 if column not in existing_df.columns:
                     existing_df[column] = None
+            
+            # Concatenate existing data with new data
             df = pd.concat([existing_df, df], ignore_index=True)
         
         # Remove duplicates based on all columns
