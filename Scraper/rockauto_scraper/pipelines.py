@@ -33,7 +33,7 @@ class RockAutoScraperPipeline:
         self.items_buffer.append(item)
         self.items_count += 1
 
-        if len(self.items_buffer) >= 1000:  # Save every 1000 items
+        if len(self.items_buffer) >= 500:  # Save every 1000 items
             self.save_buffer(spider)
 
         return item
