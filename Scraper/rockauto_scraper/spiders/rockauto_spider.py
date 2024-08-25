@@ -1,10 +1,12 @@
 import scrapy
 from scrapy.spiders import CrawlSpider
-import json
-import os
-from fake_useragent import UserAgent
 from urllib.parse import urlparse, urljoin
 from datetime import datetime
+import re
+import json
+import os
+import pandas as pd
+from tqdm import tqdm
 
 class CheckpointSystem:
     def __init__(self, checkpoint_file):
@@ -27,164 +29,261 @@ class CheckpointSystem:
     def get_last_processed_year(self, make):
         return self.progress['makes'].get(make, None)
 
-    def is_paused(self):
-        return self.progress['paused']
-
-    def get_paused_at(self):
-        return self.progress['paused_at']
-
-class RockAutoURLSpider(CrawlSpider):
+class RockAutoSpider(CrawlSpider):
     name = 'rockauto_urls'
     allowed_domains = ['rockauto.com']
-    TARGET_MAKES = ['toyota']  # Add more makes if needed
+    TARGET_MAKES = ['toyota']
+    base_url = "https://www.rockauto.com/en/catalog/"
 
-    def __init__(self, checkpoint_file='scraping_checkpoint.json', *args, **kwargs):
-        super(RockAutoURLSpider, self).__init__(*args, **kwargs)
-        self.ua = UserAgent()
-        self.base_url = "https://www.rockauto.com/en/catalog/"
-        self.checkpoint = CheckpointSystem(checkpoint_file)
+    def __init__(self, *args, **kwargs):
+        super(RockAutoSpider, self).__init__(*args, **kwargs)
+        self.checkpoint = CheckpointSystem('/Users/skylerwilson/Desktop/PartsWise/Data/fitment_data/scraping_checkpoint.json')
+        self.tbody_pattern = re.compile(r"listingcontainer\[\d+\]")
 
     def start_requests(self):
         make_urls = self.get_make_urls()
-        for url in make_urls:
-            self.logger.info(f"Starting request for URL: {url}")
-            yield scrapy.Request(url, headers={'User-Agent': self.ua.random}, callback=self.parse_make)
+        for make_url in make_urls:
+            make_name = urlparse(make_url).path.split('/')[-1]
+            current_year = datetime.now().year
+            last_processed_year = self.checkpoint.get_last_processed_year(make_name)
+            start_year = last_processed_year - 1 if last_processed_year else current_year
+            years = range(start_year, 1999, -1)
+
+            self.logger.info(f"Starting scraping for {make_name.capitalize()} from year {start_year}")
+
+            for year in tqdm(years, desc=f"Years for {make_name.capitalize()}"):
+                year_url = f"{make_url},{year}"
+                yield scrapy.Request(year_url, callback=self.parse_year, meta={'make': make_name, 'year': year})
 
     def get_make_urls(self):
         return [f"{self.base_url}{make.lower().replace(' ', '+')}" for make in self.TARGET_MAKES]
 
-    def parse_make(self, response):
-        year_urls = self.get_year_urls(response.url)
-        for url in year_urls:
-            yield scrapy.Request(url, headers={'User-Agent': self.ua.random}, callback=self.parse_year)
-
-    def get_year_urls(self, make_url):
-        current_year = datetime.now().year
-        return [f"{make_url},{year}" for year in range(current_year, 1999, -1)]
-
     def parse_year(self, response):
-        model_urls = self.get_model_urls(response)
-        for url in model_urls:
-            yield scrapy.Request(url, headers={'User-Agent': self.ua.random}, callback=self.parse_model)
-
-    def get_model_urls(self, response):
-        model_links = response.xpath("//a[@class='navlabellink']/@href").extract()
-        base_path = urlparse(response.url).path
+        make = response.meta['make']
+        year = response.meta['year']
         
-        return [urljoin(response.url, link) for link in model_links 
-                if len(urlparse(link).path.split(',')) == 3 
-                and urlparse(link).path.split(',')[2] not in base_path]
+        self.logger.info(f"Parsing year page for {make} {year}: {response.url}")
+        
+        # Updated CSS selector to find model links
+        model_links = response.css("a.navlabellink")
+        self.logger.info(f"Found {len(model_links)} potential model links")
+
+        model_urls = []
+        for i, link in enumerate(model_links):
+            href = link.attrib.get('href')
+            text = link.xpath("text()").get()
+            self.logger.debug(f"Link {i}: href='{href}', text='{text}'")
+            
+            if href and text:
+                parsed_href = urlparse(href)
+                href_parts = parsed_href.path.strip('/').split('/')
+                self.logger.debug(f"Link {i}: parsed path parts = {href_parts}")
+                
+                if len(href_parts) == 3 and href_parts[0] == 'en' and href_parts[1] == 'catalog':
+                    parts = href_parts[2].split(',')
+                    if len(parts) == 3 and parts[0] == make and parts[1] == str(year):
+                        model_name = text.strip()
+                        model_url = response.urljoin(href)
+                        model_urls.append((model_name, model_url))
+                        self.logger.debug(f"Link {i}: Added as model: {model_name} - {model_url}")
+                    else:
+                        self.logger.debug(f"Link {i}: Skipped (not a valid model link)")
+                else:
+                    self.logger.debug(f"Link {i}: Skipped (not a catalog link)")
+
+        self.logger.info(f"Found {len(model_urls)} models for {make} {year}")
+        for i, (model_name, model_url) in enumerate(model_urls):
+            self.logger.debug(f"Model {i}: {model_name} - {model_url}")
+            yield scrapy.Request(model_url, callback=self.parse_model, 
+                                meta={'make': make, 'year': year, 'model': model_name})
+
+        if not model_urls:
+            self.logger.warning(f"No models found for {make} {year}. This might be an error or the end of available data.")
 
     def parse_model(self, response):
-        engine_urls = self.get_engine_urls(response)
-        for engine in engine_urls:
-            yield scrapy.Request(engine['url'], headers={'User-Agent': self.ua.random}, callback=self.parse_engine, meta={'engine_name': engine['name']})
-
-    def get_engine_urls(self, response):
-        engine_tds = response.xpath("//td[@class='nlabel']")
-        base_path = urlparse(response.url).path
+        make = response.meta['make']
+        year = response.meta['year']
+        model = response.meta['model']
         
-        return [{'name': link.xpath("text()").get().strip(), 'url': urljoin(response.url, link.xpath("@href").get())}
-                for td in engine_tds
-                for link in td.xpath(".//a[@class='navlabellink']")
-                if len(urlparse(link.xpath("@href").get()).path.split(',')) > 3
-                and urlparse(link.xpath("@href").get()).path.split(',')[3] not in base_path]
+        self.logger.info(f"Parsing model page for {make} {year} {model}: {response.url}")
+        
+        # Updated CSS selector to find engine links
+        engine_links = response.css("a.navlabellink")
+        self.logger.info(f"Found {len(engine_links)} potential engine links")
+
+        engine_urls = []
+        for i, link in enumerate(engine_links):
+            href = link.attrib.get('href')
+            text = link.xpath("text()").get()
+            self.logger.debug(f"Link {i}: href='{href}', text='{text}'")
+            
+            if href and text:
+                parsed_href = urlparse(href)
+                href_parts = parsed_href.path.strip('/').split('/')
+                self.logger.debug(f"Link {i}: parsed path parts = {href_parts}")
+                
+                if len(href_parts) == 3 and href_parts[0] == 'en' and href_parts[1] == 'catalog':
+                    parts = href_parts[2].split(',')
+                    if len(parts) == 5 and parts[0] == make and parts[1] == str(year) and parts[2] == model.lower():
+                        engine_name = text.strip()
+                        engine_url = response.urljoin(href)
+                        engine_urls.append((engine_name, engine_url))
+                        self.logger.debug(f"Link {i}: Added as engine: {engine_name} - {engine_url}")
+                    else:
+                        self.logger.debug(f"Link {i}: Skipped (not a valid engine link)")
+                else:
+                    self.logger.debug(f"Link {i}: Skipped (not a catalog link)")
+
+        self.logger.info(f"Found {len(engine_urls)} engines for {make} {year} {model}")
+        for i, (engine_name, engine_url) in enumerate(engine_urls):
+            self.logger.debug(f"Engine {i}: {engine_name} - {engine_url}")
+            yield scrapy.Request(engine_url, callback=self.parse_engine, 
+                                meta={'make': make, 'year': year, 'model': model, 'engine': engine_name})
+
+        if not engine_urls:
+            self.logger.warning(f"No engines found for {make} {year} {model}. This might be an error or the end of available data.")
 
     def parse_engine(self, response):
-        category_urls = self.get_category_urls(response)
-        for category in category_urls:
-            yield scrapy.Request(category['url'], headers={'User-Agent': self.ua.random}, callback=self.parse_category, 
-                                 meta={'engine_name': response.meta['engine_name'], 'category_name': category['name']})
-
-    def get_category_urls(self, response):
-        category_links = response.xpath("//a[@class='navlabellink']/@href").extract()
-        base_path = urlparse(response.url).path
+        make = response.meta['make']
+        year = response.meta['year']
+        model = response.meta['model']
+        engine = response.meta['engine']
         
-        return [{'name': response.xpath(f"//a[@href='{link}']/text()").get().strip(), 'url': urljoin(response.url, link)}
-                for link in category_links
-                if len(urlparse(link).path.split(',')) == 6
-                and urlparse(link).path.split(',')[5] not in base_path]
+        self.logger.info(f"Parsing engine page for {make} {year} {model} {engine}: {response.url}")
+        
+        category_links = response.css("a.navlabellink")
+        self.logger.info(f"Found {len(category_links)} potential category links")
+
+        base_path = urlparse(response.url).path
+        category_urls = []
+
+        for link in category_links:
+            href = link.attrib.get('href')
+            text = link.css("::text").get().strip()
+            
+            if href and text:
+                parsed_href = urlparse(href)
+                href_parts = parsed_href.path.strip('/').split(',')
+                
+                if len(href_parts) == 6 and href_parts[5] not in base_path:
+                    category_url = response.urljoin(href)
+                    engine_id = href_parts[4]
+                    category_name_from_url = href_parts[5].replace('+', ' ')
+                    category_urls.append((engine_id, text, category_url, category_name_from_url))
+
+        self.logger.info(f"Found {len(category_urls)} categories for {make} {year} {model} {engine}")
+        for engine_id, category_name_from_link, category_url, category_name_from_url in category_urls:
+            self.logger.debug(f"Category: {category_name_from_link} (URL: {category_name_from_url}) - {category_url}")
+            yield scrapy.Request(
+                category_url, 
+                callback=self.parse_category, 
+                meta={
+                    'make': make, 
+                    'year': year, 
+                    'model': model, 
+                    'engine': engine, 
+                    'engine_id': engine_id, 
+                    'category': category_name_from_link,
+                    'category_url': category_name_from_url
+                }
+            )
+        if not category_urls:
+            self.logger.warning(f"No categories found for {make} {year} {model} {engine}. This might be an error or the end of available data.")
 
     def parse_category(self, response):
-        subcategory_urls = self.get_subcategory_urls(response)
-        for subcategory in subcategory_urls:
-            yield scrapy.Request(subcategory['url'], headers={'User-Agent': self.ua.random}, callback=self.parse_subcategory,
-                                 meta={'engine_name': response.meta['engine_name'], 
-                                       'category_name': response.meta['category_name'],
-                                       'subcategory_name': subcategory['name']})
-
-    def get_subcategory_urls(self, response):
-        subcategory_tds = response.xpath("//td[@class='nlabel']")
-        base_path = urlparse(response.url).path
+        make = response.meta['make']
+        year = response.meta['year']
+        model = response.meta['model']
+        engine = response.meta['engine']
+        category = response.meta['category']
+        category_url_name = response.meta['category_url']
+        engine_id = response.meta['engine_id']
         
-        return [{'name': td.xpath("text()").get().strip(), 'url': urljoin(response.url, link.xpath("@href").get())}
-                for td in subcategory_tds
-                for link in td.xpath(".//a[@class='navlabellink']")
-                if len(urlparse(link.xpath("@href").get()).path.split(',')) == 8
-                and urlparse(link.xpath("@href").get()).path.split(',')[7] not in base_path]
+        self.logger.info(f"Parsing category page for {make} {year} {model} {engine}")
+        self.logger.info(f"Category: {category} (URL: {category_url_name})")
+        
+        subcategory_links = response.css("td.nlabel a.navlabellink")
+        self.logger.info(f"Found {len(subcategory_links)} potential subcategory links")
+
+        base_path = urlparse(response.url).path
+        subcategory_urls = []
+
+        for link in subcategory_links:
+            href = link.attrib.get('href')
+            text = link.css("::text").get().strip()
+            
+            if href and text:
+                parsed_href = urlparse(href)
+                href_parts = parsed_href.path.strip('/').split(',')
+                
+                if len(href_parts) == 8 and href_parts[7] not in base_path:
+                    subcategory_url = response.urljoin(href)
+                    subcategory_urls.append((text, subcategory_url, href_parts[7]))
+
+        self.logger.info(f"Found {len(subcategory_urls)} subcategories for {make} {year} {model} {engine} {category}")
+        for subcategory_name, subcategory_url, subcategory_id in subcategory_urls:
+            self.logger.debug(f"Subcategory: {subcategory_name} - {subcategory_url}")
+            yield scrapy.Request(subcategory_url, callback=self.parse_subcategory, 
+                     meta={'make': make, 'year': year, 'model': model, 'engine': engine, 
+                           'category': category, 'subcategory': subcategory_name, 
+                           'engine_id': engine_id, 'subcategory_id': subcategory_id})
+
+        if not subcategory_urls:
+            self.logger.warning(f"No subcategories found for {make} {year} {model} {engine} {category}. This might be an error or the end of available data.")
 
     def parse_subcategory(self, response):
-        if self.is_banned(response):
-            self.handle_ban()
-            return
+        make = response.meta['make']
+        year = response.meta['year']
+        model = response.meta['model']
+        engine = response.meta['engine']
+        engine_id = response.meta['engine_id']
+        category = response.meta['category']
+        subcategory = response.meta['subcategory']
+        subcategory_id = response.meta.get('subcategory_id', '')
 
-        fitment_data = self.scrape_fitment_data(response)
-        for part in fitment_data:
-            yield part
+        self.logger.info(f"Parsing subcategory page for {make} {year} {model} {engine} {category} {subcategory}: {response.url}")
+
+        # Find all rows in the table
+        rows = response.css('tbody[id^="listingcontainer"]')
+        
+        for row in rows:
+            part_number = row.css('span.listing-final-partnumber::text').get()
+            description = row.css('span.span-link-underline-remover::text').get()
+            
+            if part_number and description:
+                part_info = {
+                    'make': make,
+                    'year': year,
+                    'model': model,
+                    'engine': engine,
+                    'engine_id': engine_id,
+                    'category': category,
+                    'subcategory': subcategory,
+                    'subcategory_id': subcategory_id,
+                    'url': response.url,
+                    'part_number': part_number.strip(),
+                    'description': description.strip(),
+                }
+                
+                # Clean up the data
+                part_info = {k: v.strip() if isinstance(v, str) else v for k, v in part_info.items()}
+                part_info = {k: v if v else None for k, v in part_info.items()}  
+                
+                yield part_info
+
+        self.logger.info(f"Scraped {len(rows)} parts for subcategory {subcategory}")
+        self.checkpoint.save_checkpoint(make, year)
+
+        # Check for pagination
+        next_page = response.css('a.navpageurlnext::attr(href)').get()
+        if next_page:
+            yield scrapy.Request(response.urljoin(next_page), callback=self.parse_subcategory, meta=response.meta)
 
     def extract_info_from_url(self, url):
         parts = urlparse(url).path.split(',')
         info = {
-            'make': parts[0].split('/')[-1] if len(parts) > 0 else None,
-            'year': parts[1] if len(parts) > 1 else None,
             'model': parts[2] if len(parts) > 2 else None,
-            'engine': parts[3] if len(parts) > 3 else None,
-            'category': parts[5].replace('+', ' ').replace('&', 'and') if len(parts) > 5 else None,
-            'subcategory': parts[6].replace('+', ' ').replace('&', 'and') if len(parts) > 6 else None
         }
         return {k: v for k, v in info.items() if v is not None}
+    
 
-    def scrape_fitment_data(self, response):
-        url_info = self.extract_info_from_url(response.url)
-        tbody_elements = response.xpath("//tbody[re:test(@id, 'listingcontainer\\[\\d+\\]')]")
-        
-        all_parts = []
-        for tbody in tbody_elements:
-            part_info = url_info.copy()
-            part_number = tbody.xpath(".//span[@class='listing-final-partnumber as-link-if-js']/text()").get()
-            description = tbody.xpath(".//span[@class='listing-footnote-text']/text()").get()
-            
-            if part_number:
-                part_info['part_number'] = part_number.strip()
-            if description:
-                part_info['description'] = description.strip()
-            
-            all_parts.append(part_info)
-        
-        return all_parts
-
-    def is_banned(self, response):
-        if response.status in [403, 429]:
-            self.logger.warning(f"Request was banned with status code: {response.status}")
-            return True
-        banned_phrases = ["Access denied", "You have been blocked", "Your IP has been blocked", "403 Forbidden", "429 Too Many Requests"]
-        for phrase in banned_phrases:
-            if phrase in response.text:
-                self.logger.warning(f"Banned phrase detected in response: '{phrase}'")
-                return True
-        return False
-
-    def handle_ban(self):
-        self.logger.warning("Ban detected. Pausing the scraper...")
-        self.checkpoint.save_checkpoint(paused=True, paused_at=datetime.now().isoformat())
-        self.crawler.engine.pause()
-
-    def process_exception(self, response, exception, spider):
-        if isinstance(exception, scrapy.exceptions.IgnoreRequest):
-            self.logger.warning(f"Request ignored: {response.url}")
-        elif isinstance(exception, scrapy.exceptions.CloseSpider):
-            self.logger.error(f"Spider closed: {exception}")
-            self.checkpoint.save_checkpoint(paused=True, paused_at=datetime.now().isoformat())
-        else:
-            self.logger.error(f"Unhandled exception: {exception}")
-        return None
