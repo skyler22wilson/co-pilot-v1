@@ -1,0 +1,67 @@
+Get all pilot parts valued over $100 and reduce their price by 50%
+SELECT p.part_number, p.description, p.price * 0.5 AS discounted_price, p.value  FROM parts p  WHERE p.brand LIKE 'pilot' AND p.value > 100;
+
+
+Get all Honda pilot parts and reduce their price by 30%
+SELECT p.part_number, p.description, p.price * 0.7 AS discounted_price  FROM parts p  JOIN model_year my ON p.part_number = my.part_number  JOIN models m ON my.model_id = m.id  WHERE LOWER(m.model_name) LIKE '%pilot%' AND LOWER(p.brand) LIKE '%honda%';
+
+
+Get all pilot parts that haven't been sold in 4 months
+SELECT p.part_number, p.description, p.quantity, p.price, p.brand  FROM parts p  WHERE p.months_no_sale >= 4  AND LOWER(p.description) LIKE '%pilot%';
+
+
+Get all Honda Pilot parts
+SELECT p.part_number, p.description, p.quantity, p.price, p.brand  FROM parts p  JOIN model_year my ON p.part_number = my.part_number  JOIN models m ON my.model_id = m.id  WHERE LOWER(m.model_name) LIKE '%pilot%' AND LOWER(p.brand) LIKE '%honda%' ORDER BY p.quantity DESC;
+
+
+Get all Accord parts made later than 2016
+SELECT p.part_number, p.description, p.quantity, p.price, p.brand  FROM parts p  JOIN model_year my ON p.part_number = my.part_number  JOIN models m ON my.model_id = m.id  JOIN years y ON my.year_id = y.id  WHERE LOWER(m.model_name) LIKE '%accord%' AND y.year > 2016;
+
+
+Get all Accord parts valued over $50
+SELECT p.part_number, p.description, p.value  FROM parts p  JOIN model_year my ON p.part_number = my.part_number  JOIN models m ON my.model_id = m.id  WHERE LOWER(m.model_name) LIKE '%accord%' AND p.value > 50  ORDER BY p.value DESC;
+
+
+Get all Honda accord parts
+SELECT p.part_number, p.description, p.quantity, p.price  FROM parts p  JOIN model_year my ON p.part_number = my.part_number  JOIN models m ON my.model_id = m.id  WHERE LOWER(p.brand) LIKE 'honda' AND LOWER(m.model_name) LIKE 'accord'  ORDER BY p.quantity DESC;
+
+
+Get all Fit parts that haven't been sold in over 5 months
+SELECT p.part_number, p.description, p.quantity, p.price, p.brand  FROM parts p  JOIN model_year my ON p.part_number = my.part_number  JOIN models m ON my.model_id = m.id  WHERE LOWER(m.model_name) LIKE '%fit%' AND p.months_no_sale > 5;
+
+
+Get all Honda fit parts made later than 2015 and reduce their price by 30%
+SELECT p.part_number, p.description, p.price * 0.7 AS discounted_price FROM parts p JOIN model_year my ON p.part_number = my.part_number JOIN models m ON my.model_id = m.id JOIN years y ON my.year_id = y.id WHERE LOWER(m.model_name) LIKE '%fit%' AND y.year > 2015;
+
+
+Get all Honda Fit parts
+SELECT p.part_number, p.description, p.quantity, p.price, p.brand  FROM parts p  JOIN model_year my ON p.part_number = my.part_number  JOIN models m ON my.model_id = m.id  WHERE LOWER(m.model_name) LIKE '%fit%' AND LOWER(p.brand) LIKE '%honda%';
+
+
+Get all CR-V parts and reduce their price by 30%
+SELECT p.part_number, p.description, p.price * 0.7 AS discounted_price  FROM parts p  JOIN model_year my ON p.part_number = my.part_number  JOIN models m ON my.model_id = m.id  WHERE LOWER(m.model_name) LIKE '%cr-v%'
+
+
+Get all CR-V parts that haven't been sold in 3 months
+SELECT p.part_number, p.description, p.quantity, p.price, p.brand  FROM parts p  JOIN model_year my ON p.part_number = my.part_number  JOIN models m ON my.model_id = m.id  WHERE LOWER(m.model_name) LIKE '%cr-v%' AND p.months_no_sale >= 3;
+
+
+Get all Honda CR-V parts made later than 2010 and reduce their price by 10%
+SELECT p.part_number, p.description, p.price * 0.9 AS discounted_price  FROM parts p  JOIN model_year my ON p.part_number = my.part_number  JOIN models m ON my.model_id = m.id  JOIN years y ON my.year_id = y.id  WHERE LOWER(m.model_name) LIKE 'cr-v' AND y.year > 2010 AND p.brand = 'Honda';
+
+
+Get all CR-Z parts
+SELECT p.part_number, p.description, p.quantity, p.price, p.brand  FROM parts AS p  JOIN model_year AS my ON p.part_number = my.part_number  JOIN models AS m ON my.model_id = m.id  WHERE LOWER(m.model_name) LIKE '%cr-z%' ORDER BY p.quantity DESC;
+
+
+Get all Honda CR-Z parts valued over $300
+SELECT p.part_number, p.description, p.value  FROM parts p  JOIN model_year my ON p.part_number = my.part_number  JOIN models m ON my.model_id = m.id  WHERE LOWER(p.brand) LIKE 'honda' AND LOWER(m.model_name) LIKE 'cr-z' AND p.value > 300;
+
+
+Get all parts valued over $500 that haven't been sold in 6 months and reduce their price by 50%
+SELECT p.part_number, p.description, p.price, p.value FROM parts p WHERE p.value > 500 AND p.months_no_sale >= 6;
+
+
+Get all parts valued under $300 and reduce their price by 90%
+SELECT part_number, description, price, value FROM parts WHERE value < 300
+
