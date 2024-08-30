@@ -1,6 +1,6 @@
 import scrapy
 from scrapy.spiders import CrawlSpider
-from urllib.parse import urlparse, urljoin
+from urllib.parse import urlparse
 from datetime import datetime
 import re
 import json
@@ -17,17 +17,20 @@ class CheckpointSystem:
         if os.path.exists(self.checkpoint_file):
             with open(self.checkpoint_file, 'r') as f:
                 return json.load(f)
-        return {'makes': {}, 'paused': False, 'paused_at': None}
+        return {'makes': {}}
 
-    def save_checkpoint(self, make, year, paused=False, paused_at=None):
-        self.progress['makes'][make] = year
-        self.progress['paused'] = paused
-        self.progress['paused_at'] = paused_at
+    def save_checkpoint(self, make, year, model):
+        if make not in self.progress['makes']:
+            self.progress['makes'][make] = {}
+        if year not in self.progress['makes'][make]:
+            self.progress['makes'][make][year] = []
+        if model not in self.progress['makes'][make][year]:
+            self.progress['makes'][make][year].append(model)
         with open(self.checkpoint_file, 'w') as f:
             json.dump(self.progress, f)
 
-    def get_last_processed_year(self, make):
-        return self.progress['makes'].get(make, None)
+    def get_processed_models(self, make, year):
+        return self.progress['makes'].get(make, {}).get(str(year), [])
 
 class RockAutoSpider(CrawlSpider):
     name = 'rockauto_urls'
@@ -45,26 +48,20 @@ class RockAutoSpider(CrawlSpider):
         for make_url in make_urls:
             make_name = urlparse(make_url).path.split('/')[-1]
             current_year = datetime.now().year
-            last_processed_year = self.checkpoint.get_last_processed_year(make_name)
-            start_year = last_processed_year - 1 if last_processed_year else current_year
-            years = range(start_year, 1999, -1)
+            years = range(current_year, 2009, -1)  # From current year to 2010
 
-            self.logger.info(f"Starting scraping for {make_name.capitalize()} from year {start_year}")
+            self.logger.info(f"Starting scraping for {make_name.capitalize()} from year {current_year} to 2010")
 
             for year in tqdm(years, desc=f"Years for {make_name.capitalize()}"):
                 year_url = f"{make_url},{year}"
                 yield scrapy.Request(year_url, callback=self.parse_year, meta={'make': make_name, 'year': year})
 
-    def get_make_urls(self):
-        return [f"{self.base_url}{make.lower().replace(' ', '+')}" for make in self.TARGET_MAKES]
-
     def parse_year(self, response):
         make = response.meta['make']
         year = response.meta['year']
-        
+
         self.logger.info(f"Parsing year page for {make} {year}: {response.url}")
-        
-        # Updated CSS selector to find model links
+
         model_links = response.css("a.navlabellink")
         self.logger.info(f"Found {len(model_links)} potential model links")
 
@@ -72,28 +69,21 @@ class RockAutoSpider(CrawlSpider):
         for i, link in enumerate(model_links):
             href = link.attrib.get('href')
             text = link.xpath("text()").get()
-            self.logger.debug(f"Link {i}: href='{href}', text='{text}'")
-            
+
             if href and text:
                 parsed_href = urlparse(href)
                 href_parts = parsed_href.path.strip('/').split('/')
-                self.logger.debug(f"Link {i}: parsed path parts = {href_parts}")
-                
+
                 if len(href_parts) == 3 and href_parts[0] == 'en' and href_parts[1] == 'catalog':
                     parts = href_parts[2].split(',')
                     if len(parts) == 3 and parts[0] == make and parts[1] == str(year):
                         model_name = text.strip()
                         model_url = response.urljoin(href)
                         model_urls.append((model_name, model_url))
-                        self.logger.debug(f"Link {i}: Added as model: {model_name} - {model_url}")
-                    else:
-                        self.logger.debug(f"Link {i}: Skipped (not a valid model link)")
-                else:
-                    self.logger.debug(f"Link {i}: Skipped (not a catalog link)")
 
         self.logger.info(f"Found {len(model_urls)} models for {make} {year}")
         for i, (model_name, model_url) in enumerate(model_urls):
-            self.logger.debug(f"Model {i}: {model_name} - {model_url}")
+            self.logger.debug(f"Yielding request for {make} {year} {model_name}: {model_url}")
             yield scrapy.Request(model_url, callback=self.parse_model, 
                                 meta={'make': make, 'year': year, 'model': model_name})
 

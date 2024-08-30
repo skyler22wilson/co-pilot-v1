@@ -7,7 +7,7 @@ class RockAutoScraperPipeline:
         self.output_dir = output_dir
         self.current_make = None
         self.current_year = None
-        self.items_buffer = []
+        self.model_buffers = {}
         self.items_count = 0
 
     @classmethod
@@ -19,10 +19,18 @@ class RockAutoScraperPipeline:
         if not item:
             raise DropItem("Empty item found")
 
-        if item['make'] != self.current_make or item['year'] != self.current_year:
-            self.save_buffer(spider)
-            self.current_make = item['make']
-            self.current_year = item['year']
+        make = item['make']
+        year = item['year']
+        model = item['model']
+
+        if make != self.current_make or year != self.current_year:
+            self.save_all_buffers(spider)
+            self.current_make = make
+            self.current_year = year
+            self.model_buffers = {}
+
+        if model not in self.model_buffers:
+            self.model_buffers[model] = []
 
         # Ensure all required fields are present
         required_fields = ['make', 'year', 'model', 'engine', 'category', 'subcategory', 'part_number', 'description']
@@ -30,19 +38,19 @@ class RockAutoScraperPipeline:
             if field not in item:
                 item[field] = None  # Set to None if the field is missing
 
-        self.items_buffer.append(item)
+        self.model_buffers[model].append(item)
         self.items_count += 1
 
-        if len(self.items_buffer) >= 500:  # Save every 1000 items
-            self.save_buffer(spider)
+        if len(self.model_buffers[model]) >= 500:  # Save every 500 items per model
+            self.save_model_buffer(spider, model)
 
         return item
 
-    def save_buffer(self, spider):
-        if not self.items_buffer:
+    def save_model_buffer(self, spider, model):
+        if not self.model_buffers[model]:
             return
 
-        df = pd.DataFrame(self.items_buffer)
+        df = pd.DataFrame(self.model_buffers[model])
         filename = f"rockauto_fitment_data_{self.current_make}_{self.current_year}.csv"
         filepath = os.path.join(self.output_dir, filename)
         
@@ -52,31 +60,23 @@ class RockAutoScraperPipeline:
             if column not in df.columns:
                 df[column] = None
 
-        if os.path.exists(filepath):
-            # Read existing CSV file
-            existing_df = pd.read_csv(filepath)
-            
-            # Ensure existing DataFrame has all required columns
-            for column in required_columns:
-                if column not in existing_df.columns:
-                    existing_df[column] = None
-            
-            # Concatenate existing data with new data
-            df = pd.concat([existing_df, df], ignore_index=True)
+        mode = 'a' if os.path.exists(filepath) else 'w'
+        header = not os.path.exists(filepath)
         
-        # Remove duplicates based on all columns
-        df.drop_duplicates(subset=required_columns, keep='last', inplace=True)
+        # Append to CSV, including all required columns
+        df.to_csv(filepath, mode=mode, index=False, columns=required_columns, header=header)
         
-        # Save to CSV, including all required columns
-        df.to_csv(filepath, index=False, columns=required_columns)
-        
-        spider.logger.info(f"Saved {len(df)} items for {self.current_make} {self.current_year}")
+        spider.logger.info(f"Saved {len(df)} items for {self.current_make} {self.current_year} - {model}")
         
         if hasattr(spider, 'checkpoint'):
-            spider.checkpoint.save_checkpoint(self.current_make, self.current_year)
-        self.items_buffer = []
+            spider.checkpoint.save_checkpoint(self.current_make, self.current_year, model)
+        self.model_buffers[model] = []
+
+    def save_all_buffers(self, spider):
+        for model in self.model_buffers:
+            self.save_model_buffer(spider, model)
 
     def close_spider(self, spider):
-        self.save_buffer(spider)  # Save any remaining items
+        self.save_all_buffers(spider)  # Save any remaining items
         spider.logger.info(f"Total items scraped: {self.items_count}")
 
