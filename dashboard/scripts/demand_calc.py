@@ -3,10 +3,11 @@ import logging
 import joblib
 import polars as pl
 import numpy as np
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import StandardScaler
 from joblib import load
 from dashboard.models.demand_predictor.predictions import calculate_demand
 from dashboard.setup.utils import load_configuration
+from scipy import stats
 
 CONFIG_FILE = "dashboard/configuration/SeasonalConfig.json"
 DEMAND_PREDICTOR = '/Users/skylerwilson/Desktop/PartsWise/co-pilot-v1/dashboard/models/demand_predictor/preprocessor.joblib'
@@ -47,9 +48,15 @@ def calculate_demand_score(parts_data, shap_values, negative_features):
     shap_sum = np.abs(shap_values).sum(axis=1)
     weighted_scores = pl.Series(shap_sum)
 
-    # Normalize the demand score between 0 and 1
-    min_max_scaler = MinMaxScaler()
-    demand_score_normalized = min_max_scaler.fit_transform(weighted_scores.to_numpy().reshape(-1, 1)).flatten()
+    # Apply Yeo-Johnson transformation to the weighted scores
+    transformed_demand_scores, _ = stats.yeojohnson(weighted_scores)
+    transformed_demand_scores = pl.Series(transformed_demand_scores).cast(pl.Float64)
+
+    scaler = StandardScaler()
+    demand_score_scaled = scaler.fit_transform(transformed_demand_scores.to_numpy().reshape(-1, 1)).flatten()
+
+    # Apply MinMaxScaler to scale the scores to [0, 1]
+    demand_score_normalized = stats.norm.cdf(demand_score_scaled)
 
     # Convert the normalized scores back to a Polars Series
     demand_score_normalized = pl.Series(demand_score_normalized)
@@ -57,7 +64,7 @@ def calculate_demand_score(parts_data, shap_values, negative_features):
     # Set demand to 0 for obsolete parts
     parts_data = parts_data.with_columns(
         pl.when(pl.col('months_no_sale') >= 12)
-        .then(0)
+        .then(0.0)  # Ensure the value is float
         .otherwise(demand_score_normalized)
         .alias('demand')
     )

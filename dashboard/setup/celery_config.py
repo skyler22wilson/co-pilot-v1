@@ -1,4 +1,4 @@
-from celery import Celery, chord, group, chain
+from celery import Celery, chord, group, chain, shared_task
 from dashboard.setup.utils import convert_to_float, convert_to_int, load_configuration, create_schema, update_schema
 from dashboard.scripts.data_clean import main as data_clean
 from dashboard.scripts.prepare_cols import main as column_preperation
@@ -6,10 +6,8 @@ from dashboard.scripts.demand_calc import main as create_demand_score
 from dashboard.scripts.create_categories import main as create_categories
 from dashboard.scripts.check_reorder import main as calculate_reorder
 from dashboard.models.obsolecence_predictor.obsolete_predictor import main as obsolescence_risk
-from dashboard.scripts.monthly_sales import main as monthly_sales
 from dashboard.scripts.parts_data import main as get_parts_data
-from dashboard.scripts.db_setup import main as build_database
-from functools import reduce
+from dashboard.scripts.sql_converter import main as sql_conversion
 import json
 import polars as pl
 import logging
@@ -17,7 +15,7 @@ import logging
 # Use Redis as the message broker
 app = Celery('tasks', broker='redis://localhost:6379/0', backend='redis://localhost:6379/0')
 
-@app.task(bind=True)
+@shared_task(bind=True)
 def read_in_data_task(self, file_path):
     config = load_configuration('/Users/skylerwilson/Desktop/PartsWise/co-pilot-v1/dashboard/configuration/InitialConfig.json')
     new_column_names = config['ColumnNames']
@@ -48,7 +46,7 @@ def read_in_data_task(self, file_path):
         return False
 
 
-@app.task(bind=True)
+@shared_task(bind=True)
 def run_data_cleaning_task(self, input_data):
     """
     A Celery task that wraps the data cleaning and processing logic.
@@ -61,7 +59,7 @@ def run_data_cleaning_task(self, input_data):
     # Pass the current task instance to your main function for state updates
     return data_clean(self, input_data)
 
-@app.task(bind=True)
+@shared_task(bind=True)
 def prepare_data_task(self, input_data):
     """
     A Celery task that wraps the column preperation and processing logic.
@@ -69,101 +67,91 @@ def prepare_data_task(self, input_data):
     """
     return column_preperation(self, input_data)
 
-@app.task(bind=True)
+@shared_task(bind=True)
 def create_demand_score_task(self, input_data):
     return create_demand_score(self, input_data)
 
-@app.task(bind=True)
+@shared_task(bind=True)
 def categorization_task(self, input_data):
     return create_categories(self, input_data)
 
-@app.task(bind=True)
+@shared_task(bind=True)
 def reordering_task(self, input_data):
     return calculate_reorder(self, input_data)
 
-@app.task(bind=True)
+@shared_task(bind=True)
 def obsolescence_risk_task(self, input_data):
     return obsolescence_risk(self, input_data)
 
-@app.task(bind=True)
+@shared_task(bind=True)
 def aggregate_results(self, data_from_previous_tasks):
     """Aggregate results from multiple tasks and apply post-aggregation filtering."""
-    dataframes = []
+    logging.info(f"Number of tasks received: {len(data_from_previous_tasks)}")
 
+    dataframes = []
+    #original_df = pl.read_json(StringIO(json.loads(original_data))) if isinstance(original_data, str) else pl.DataFrame(original_data)
     for idx, data in enumerate(data_from_previous_tasks):
         try:
-            # Check the structure of the JSON string before converting to DataFrame
-            json_data = json.loads(data)
-            columns = json_data.get("columns")
-            index = json_data.get("index")
-            data_values = json_data.get("data")
+            logging.info(f"Processing data from task {idx}")
+            logging.info(f"Type of data: {type(data)}")
+            
+            if isinstance(data, str):
+                # If it's a string, parse it as JSON
+                parsed_data = json.loads(data)
+            else:
+                # If it's already a list or dict, use it directly
+                parsed_data = data
 
-            if not columns or not data_values:
-                raise ValueError(f"Missing columns or data in DataFrame {idx}")
-
-            df = pl.DataFrame(data_values, schema=columns)
+            # Convert the list of dictionaries to a Polars DataFrame
+            df = pl.DataFrame(parsed_data)
+            
             dataframes.append(df)
             logging.info(f"DataFrame {idx} shape: {df.shape}")
-
+            logging.info(f"DataFrame {idx} columns: {df.columns}")
         except Exception as e:
-            logging.error(f"Error processing DataFrame {idx}: {e}")
-            logging.error(f"Problematic data content: {data}")
+            logging.error(f"Error processing data from task {idx}: {e}")
+            logging.error(f"Problematic data content: {str(data)[:1000]}...")  # Convert to string before slicing
             raise
 
-    def merge_dfs(left, right):
-        overlapping_columns = left.columns.intersection(right.columns).to_list()
-        overlapping_columns.remove('part_number')
-        right_adjusted = right.drop(columns=overlapping_columns)
-        return left.join(right_adjusted, on='part_number', how='outer')
-
     try:
-        aggregated_data = reduce(merge_dfs, dataframes)
+        # Merge all dataframes from parallel tasks
+        concat_df = pl.concat(dataframes, how="align")
+        
+        # Group by 'part_number' and aggregate
+        aggregated_df = concat_df.group_by('part_number').agg([
+            pl.all().exclude('part_number').first()
+        ])
 
-        # Apply filtering logic after aggregation
-        filtered_aggregated_data = aggregated_data.filter(
-            (pl.col('quantity') > 0) | (pl.col('negative_on_hand') != 0)
-        )
-        filtered_json = filtered_aggregated_data.to_json()
+        logging.info(f'Aggregated DF columns: {aggregated_df.columns}')
 
-        logging.info(f"Length of filtered aggregated JSON file: {len(filtered_aggregated_data)} rows")
+
+        aggregated_df.write_csv("/Users/skylerwilson/Desktop/PartsWise/co-pilot-v1/data/processed_data/processed_data_final.csv")
+
+        filtered_json = aggregated_df.write_json()
+
+        logging.info(f"Length of filtered aggregated JSON file: {len(aggregated_df)} rows")
+        logging.info(f"Columns in final DataFrame: {aggregated_df.columns}")
         return filtered_json
     except Exception as e:
         logging.error(f"Error during aggregation: {e}")
+        logging.error(f"DataFrames shapes: {[df.shape for df in dataframes]}")
+        logging.error(f"DataFrames columns: {[df.columns for df in dataframes]}")
         raise
 
-@app.task(bind=True)
-def monthly_sales_task(self, input_data):
-    result = monthly_sales(self, input_data)
-    return result
 
-
-@app.task(bind=True)
-def parts_data_task(self, input_data):
+@shared_task(bind=True)
+def create_dataframes(self, input_data):
     result = get_parts_data(self, input_data)
-    return result
+    if result is None:
+        return None
+    return result['output_path']
 
-@app.task(bind=True)
-def combine_datasets(self, results):
-    """Combine all results into a single dictionary."""
-    parts_data, monthly_sales = results
-            
-    # Parse each result from JSON to a dictionary
-    parts_data = json.loads(parts_data)
-    monthly_sales = json.loads(monthly_sales)
+@shared_task(bind=True)
+def convert_to_sql(self, input_data):
+    conn = sql_conversion(input_data)
+    return "Database created successfully"
 
-    combined_data = {
-        "parts_data": parts_data,
-        "monthly_sales": monthly_sales,
-    }
-
-    return combined_data
-
-@app.task(bind=True)
-def database_builder(self, input_data):
-    return build_database(self, input_data)
-
-
-@app.task(bind=True)
+@shared_task(bind=True)
 def start_pipeline(self, data):
     # Initial sequential tasks
     initial_tasks = chain(
@@ -173,32 +161,28 @@ def start_pipeline(self, data):
         create_demand_score_task.s()
     )
 
-    # First group of parallel tasks wrapped in a chord to ensure synchronization
     categorization_group = chord(
         group(
             categorization_task.s(),
             reordering_task.s(),
             obsolescence_risk_task.s(),
         ),
-        aggregate_results.s()  # This is the callback for the chord
+        aggregate_results.s()
     )
 
-    # Final group of tasks that depends on the output of the categorization group
-    data_group = chord(
-        group(
-            parts_data_task.s(),
-            monthly_sales_task.s(),
-        ),
-        combine_datasets.s() 
+    final_tasks = chain(
+        create_dataframes.s(),
+        convert_to_sql.s()
     )
+
     # Combine all parts into one flow
     workflow = chain(
         initial_tasks,
         categorization_group,
-        data_group, 
-        database_builder.s()
+        final_tasks
     )
 
     # Apply the entire workflow asynchronously
     result = workflow.apply_async()
     return result
+

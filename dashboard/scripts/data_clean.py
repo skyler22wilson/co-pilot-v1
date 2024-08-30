@@ -108,7 +108,9 @@ def filter_consecutive_letters(data_frame):
         return bool(re.search(r'[A-Za-z]{3,}', part_number))
 
     # Apply the filter function to remove invalid part numbers
-    data_frame = data_frame.filter(~pl.col('part_number').map_elements(has_consecutive_letters))
+    data_frame = data_frame.filter(
+        ~pl.col('part_number').map_elements(has_consecutive_letters, return_dtype=pl.Boolean)
+    )
 
     return data_frame
 

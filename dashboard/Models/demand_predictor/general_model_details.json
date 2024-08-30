@@ -1,27 +1,29 @@
 {
     "selected_features": [
-        "normalized_seasonal_score",
-        "negative_on_hand",
-        "margin_percentage",
+        "margin",
+        "quantity_ordered_ytd",
+        "cost_per_unit",
+        "total_cost",
         "gross_profit",
-        "roi",
+        "seasonality_strength",
+        "anomaly_score",
+        "recurrence_score",
         "12m_days_supply",
         "1m_days_supply",
-        "turnover",
-        "3m_turnover",
         "sell_through_rate",
-        "days_of_inventory_outstanding"
+        "sales_trend"
     ],
     "best_hyperparameters": {
-        "colsample_bytree": 0.7929790682209755,
-        "gamma": 0.6033273830178953,
-        "learning_rate": 0.09997699362356686,
-        "max_delta_step": 11,
+        "n_estimators": 490,
         "max_depth": 5,
-        "min_child_weight": 7,
-        "n_estimators": 725,
-        "reg_alpha": 0.01229815941335101,
-        "reg_lambda": 1.6610844533067748,
-        "subsample": 0.7569306903183027
+        "learning_rate": 0.0796252230188944,
+        "subsample": 0.6412153904772979,
+        "colsample_bytree": 0.9978228786586596,
+        "min_child_weight": 9,
+        "max_delta_step": 4,
+        "gamma": 0.0003276021813710634,
+        "reg_alpha": 5.706041275112271e-05,
+        "reg_lambda": 0.009134733108734593,
+        "tweedie_variance_power": 1.8834344958111788
     }
 }

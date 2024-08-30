@@ -1,15 +1,17 @@
 import polars as pl
 from io import StringIO
 import logging
+import stumpy
 import numpy as np
+from scipy.stats import variation
 import os
 import calendar
 import warnings
 warnings.filterwarnings("ignore")
 from datetime import datetime
-from dashboard.setup.utils import load_configuration, create_long_form_dataframe, get_month_number_expr
+from dashboard.setup.utils import load_configuration, create_long_form_dataframe
 
-CONFIG_FILE = "dashboard/configuration/SeasonalConfig.json"
+CONFIG_FILE = "dashboard/configuration/InitialConfig.json"
 LOGGING_DIR = "Logs"
 
 
@@ -92,10 +94,6 @@ def calculate_annual_financial_metrics(df: pl.DataFrame) -> pl.DataFrame:
     current_month =  datetime.now().month
     this_year_sales_columns = [f'sales_{calendar.month_abbr[i].lower()}' for i in range(1, current_month + 1)]
 
-
-    current_month =  datetime.now().month
-    this_year_sales_columns = [f'sales_{calendar.month_abbr[i].lower()}' for i in range(1, current_month + 1)]
-
     df = df.with_columns(
             (pl.col('price') - pl.col('margin')).round(2).alias('cost_per_unit')
         )
@@ -147,7 +145,7 @@ def current_month_sales(df: pl.DataFrame) -> pl.Expr:
 
     return this_month_sales_sum.item()
 
-def calculate_rolling_sales(df_long, df_original):
+def calculate_rolling_sales(df_long, df_original) -> pl.DataFrame:
     """
     Calculate rolling sales, aggregate them, and join the results back to the original DataFrame.
 
@@ -159,9 +157,9 @@ def calculate_rolling_sales(df_long, df_original):
         pl.DataFrame: Original DataFrame enriched with aggregated rolling sales data.
     """
     # Ensure the data is sorted by part_number and date
-    df_long = df_long.sort(by=["part_number", "date"])
+    df_long = df_long.select(['part_number', 'date', 'quantity_sold']).sort(by=["part_number", "date"])
 
-    # Calculate rolling sales
+    # Calculate rolling sales with minimal data copies
     df_rolling = df_long.with_columns([
         pl.col("quantity_sold").rolling_sum(window_size=3, min_periods=1).over("part_number").alias("rolling_3m_sales"),
         pl.col("quantity_sold").rolling_sum(window_size=12, min_periods=1).over("part_number").alias("rolling_12m_sales")
@@ -177,6 +175,69 @@ def calculate_rolling_sales(df_long, df_original):
     df_enriched = df_original.join(df_aggregated, on="part_number", how="left")
 
     return df_enriched
+
+def calculate_seasonality_scores(sales_df, df, m=12):
+    sorted_df = sales_df.sort('date')
+
+    # Calculate the total sales for each part
+    total_sales = sorted_df.group_by('part_number').agg(pl.col('quantity_sold').sum().alias('total_sales'))
+
+    # Filter out parts with zero total sales
+    parts_with_sales = total_sales.filter(pl.col('total_sales') > 0)['part_number']
+
+    # Filter the original dataframe to keep only parts with sales
+    sorted_df_with_sales = sorted_df.filter(pl.col('part_number').is_in(parts_with_sales))
+
+    results = {}
+    seasonality_scores = []
+
+    for part in parts_with_sales:
+        group = sorted_df_with_sales.filter(pl.col('part_number') == part)
+        time_series = group['quantity_sold'].to_numpy().astype(float) + 1e-8
+        
+        if len(time_series) > m:
+            mp = stumpy.stump(time_series, m=m, ignore_trivial=True)
+            results[part] = mp
+            
+            # Analyze seasonality
+            motif_idx = np.argsort(mp[:, 0])[0]
+            discord_idx = np.argsort(mp[:, 0])[-1]
+            
+            seasonality_strength = 1 / (mp[motif_idx, 0] + 1e-1)
+            consistency = 1 / (variation(mp[:, 0]) + 1e-1)
+            anomaly_score = mp[discord_idx, 0]
+            motif_like_patterns = np.sum(mp[:, 0] < np.median(mp[:, 0]))
+            recurrence_score = motif_like_patterns / len(mp)
+            
+            seasonality_scores.append({
+                'part_number': part,
+                'seasonality_strength': seasonality_strength,
+                'consistency': consistency,
+                'anomaly_score': anomaly_score,
+                'recurrence_score': recurrence_score,
+            })
+        else:
+            seasonality_scores.append({
+                'part_number': part,
+                'seasonality_strength': 0,
+                'consistency': 0,
+                'anomaly_score': 0,
+                'recurrence_score': 0,
+            })
+
+
+    seasonality_df = pl.DataFrame(seasonality_scores)
+
+    final_df = df.join(seasonality_df, on="part_number", how="left")
+
+
+    # Fill any potential NaN values with 0
+    columns_to_fill = ['seasonality_strength', 'consistency', 'anomaly_score', 'recurrence_score']
+    result_df = final_df.with_columns(
+        [pl.col(col).fill_null(0.0) for col in columns_to_fill]
+    )
+
+    return result_df
 
 
 def calculate_day_supply(df: pl.DataFrame) -> pl.DataFrame:
@@ -224,13 +285,19 @@ def calculate_turnover(df: pl.DataFrame) -> pl.DataFrame:
     months_covered = datetime.now().month
 
     # Estimate full year orders based on YTD orders
-    estimated_fy_orders = ((pl.col('quantity_ordered_ytd') + pl.col('special_orders_ytd')) / months_covered) * 12 
+    estimated_fy_orders = ((pl.col('quantity_ordered_ytd') + pl.col('special_orders_ytd')) * (12/ months_covered)).cast(pl.Int32) 
 
     # Estimating beginning inventory (assuming you have some way to calculate or estimate this)
-    starting_inventory = (pl.when(estimated_fy_orders > 0)
-                          .then((pl.col('quantity') + pl.col('rolling_12m_sales') - estimated_fy_orders) * pl.col('price'))
-                          .otherwise((pl.col('quantity') + pl.col('rolling_12m_sales')) * pl.col('price'))
-                          .alias('starting_inventory'))
+    starting_inventory = (
+        pl.when(estimated_fy_orders > 0)
+        .then(
+            pl.when((pl.col('quantity') + pl.col('rolling_12m_sales') - estimated_fy_orders) > 0)
+            .then((pl.col('quantity') + pl.col('rolling_12m_sales') - estimated_fy_orders) * pl.col('price'))
+            .otherwise(0)
+        )
+        .otherwise((pl.col('quantity') + pl.col('rolling_12m_sales')) * pl.col('price'))
+        .alias('starting_inventory')
+    )
     
     ending_inventory = pl.col('quantity')
     average_inventory = (starting_inventory + ending_inventory) / 2
@@ -239,16 +306,23 @@ def calculate_turnover(df: pl.DataFrame) -> pl.DataFrame:
     turnover = pl.when(average_inventory > 0).then(pl.col('cogs') / average_inventory).otherwise(0).alias('turnover')
 
     # Add both starting inventory and turnover to the DataFrame
-    return df.with_columns([starting_inventory, turnover])
+    return df.with_columns([turnover, starting_inventory])
 
-def calculate_3mo_turnover(df):
+def calculate_3mo_turnover(df) -> pl.DataFrame:
     months_covered = datetime.now().month
-    estimated_3m_orders = (pl.col('quantity_ordered_ytd') +pl.col('special_orders_ytd') / months_covered) * 3
+    estimated_3m_orders = ((pl.col('quantity_ordered_ytd') + pl.col('special_orders_ytd')) * (3 / months_covered)).cast(pl.Int32)
     
-    # Estimating beginning inventory (assuming you have some way to calculate or estimate this)
-    starting_inventory = (pl.when(estimated_3m_orders > 0)
-                          .then((pl.col('quantity') + pl.col('rolling_3m_sales') - estimated_3m_orders) * pl.col('price')) 
-                          .otherwise((pl.col('quantity') + pl.col('rolling_3m_sales') * pl.col('price'))))
+    starting_inventory = (
+        pl.when(estimated_3m_orders > 0)
+        .then(
+            pl.when((pl.col('quantity') + pl.col('rolling_3m_sales') - estimated_3m_orders) > 0)
+            .then((pl.col('quantity') + pl.col('rolling_3m_sales') - estimated_3m_orders) * pl.col('price'))
+            .otherwise(0)
+        )
+        .otherwise((pl.col('quantity') + pl.col('rolling_3m_sales')) * pl.col('price'))
+        .alias('starting_inventory')
+    )
+
     ending_inventory = pl.col('quantity')
     average_inventory = (starting_inventory + ending_inventory) / 2
     turnover = pl.col('cogs') / average_inventory
@@ -278,7 +352,7 @@ def sell_through_rate(df: pl.DataFrame) -> pl.DataFrame:
     
 
     sell_through_rate = (pl.when(
-        pl.col('quantity') > 0)
+        pl.col('starting_inventory') > 0)
         .then(pl.col('rolling_12m_sales') * pl.col('price') / pl.col('starting_inventory') * 100)
         .otherwise(0)
         .round(2)
@@ -342,72 +416,47 @@ def order_2_sales(df: pl.DataFrame) -> pl.DataFrame:
 
     return df.with_columns(order_2_sales)
 
-def create_seasonal_component(df):
-    """
-    Create a datetime column from year and month, and add cyclical features based on the datetime.
 
-    Args:
-        df (pl.DataFrame): DataFrame containing year and month columns.
-        year_col (str): Column name with the year.
-        month_col (str): Column name with the month name.
+def create_sales_features(df, sales_columns) -> pl.DataFrame:
+    current_month_index = datetime.now().month
+    current_month_index += 12  # Account for two years of data
 
-    Returns:
-        pl.DataFrame: Enhanced DataFrame with datetime and cyclical features.
-    """
+    # Select the relevant columns in reversed order up to the current month
+    selected_sales_columns = sales_columns[:current_month_index]
 
-    # Map month names to numbers (if needed)
-    logging.debug(f"Shape before adding cyclical features: {df.shape}")
-    logging.debug(f"columns before adding cyclical features: {df.columns}")
-    df = df.with_columns([
-        (2 * np.pi * pl.col("month_number") / 12).sin().alias("month_sin"),
-        (2 * np.pi * pl.col("month_number") / 12).cos().alias("month_cos")
-    ])
-
-    logging.debug(f"Shape after adding cyclical features: {df.shape}")
-    logging.debug(f"DataFrame with cyclical features: {df.head()}")
-    print(f'Seasonality Columns: {df.columns}')
-    
-    return df
-
-def create_seasonal_df(df, window_size=12):
-    """
-    Enhance a DataFrame with a rolling average and combine it with cyclical features to create a seasonal component.
-
-    Args:
-        df (pl.DataFrame): DataFrame with columns for part number, date, quantity sold, and cyclical features.
-        window_size (int): Size of the rolling window for calculating the moving average.
-
-    Returns:
-        pl.DataFrame: DataFrame with added rolling average and seasonal adjustment features.
-    """
-    required_columns = ["quantity_sold", "month_sin", "month_cos"]
-    for col in required_columns:
-        if col not in df.columns:
-            logging.error(f"Missing column in DataFrame: {col}")
-            raise ValueError(f"Missing column in DataFrame: {col}")
-    # Calculate the rolling mean for the quantity sold
+    # Create the sales_array
     df = df.with_columns(
-        pl.col("quantity_sold").rolling_mean(window_size=window_size, min_periods=1).alias("rolling_avg")
+        pl.concat_list([pl.col(col) for col in selected_sales_columns]).alias("sales_array")
     )
 
-    # Calculate deviation from the rolling average
-    df = df.with_columns(
-        (pl.col("quantity_sold") - pl.col("rolling_avg")).alias("deviation")
-    )
+    # Calculate sales trend (using simple linear regression)
+    def calc_trend(arr):
+        n = arr.len()
+        x = pl.arange(0, n, eager=True)
+        slope = (n * (x * arr).sum() - x.sum() * arr.sum()) / (n * (x**2).sum() - x.sum()**2)
+        return slope
 
-    # Combine cyclical features with deviations to create a seasonal score
-    df = df.with_columns(
-        (pl.col("deviation") * pl.col("month_sin") + pl.col("deviation") * pl.col("month_cos")).alias("seasonal_score")
-    )
+    # Calculate volatility
+    def calc_volatility(arr):
+        mean = arr.mean()
+        return arr.std() / mean if mean != 0 else 0
 
-    # You could also normalize this score by the number of observations (i.e., months) for each part number
-    df = df.group_by("part_number").agg([
-        pl.mean("seasonal_score").alias("normalized_seasonal_score")
-    ])
+    # Create expressions for new columns
+    exprs = [
+        pl.col("sales_array").map_elements(calc_trend, return_dtype=pl.Float32).alias("sales_trend"),
+        pl.col("sales_array").map_elements(calc_volatility, return_dtype=pl.Float32).alias("sales_volatility"),
+        pl.col("sales_array").map_elements(lambda x: calc_trend(x.tail(3)), pl.Float32).alias("recent_sales_trend"),
+    ]
+
+    # Apply expressions to create new columns
+    df = df.with_columns(exprs)
+
+    # Remove the temporary sales_array column
+    df = df.drop("sales_array")
 
     return df
 
-def calculate_additional_metrics(df) -> pl.DataFrame:
+def calculate_additional_metrics(df, config) -> pl.DataFrame:
     logging.info('Starting to calculate additional metrics...')
     
     try:
@@ -429,10 +478,7 @@ def calculate_additional_metrics(df) -> pl.DataFrame:
 
         logging.info('Creating long form dataframe for rolling sales...')
         df_long = create_long_form_dataframe(df)
-        df_long = create_seasonal_component(df_long)
-        df_seasonal = create_seasonal_df(df_long)
-        logging.info('Joining seasonal data with long form...')
-        df = df_seasonal.join(df, on="part_number", how="left")
+        df = calculate_seasonality_scores(df_long, df)
 
         logging.info('Calculating rolling sales...')
         df = calculate_rolling_sales(df_long, df)
@@ -454,6 +500,11 @@ def calculate_additional_metrics(df) -> pl.DataFrame:
 
         logging.info('Calculating order to sales ratio...')
         df = order_2_sales(df)
+
+
+        logging.info('Calculating sales trends and volitility...')
+        sales_columns = config['SalesColumns']
+        df = create_sales_features(df, sales_columns)
 
         logging.info('All calculations complete.')
         return df
@@ -481,7 +532,7 @@ def main(current_task, input_data):
     try:
         df = pl.read_json(StringIO(input_data))
         print('Data loaded successfully!')
-        parts_data = calculate_additional_metrics(df)
+        parts_data = calculate_additional_metrics(df, config)
         logging.info(f"Created Columns: {parts_data.columns}.")
 
         parts_data.write_csv('/Users/skylerwilson/Desktop/PartsWise/co-pilot-v1/data/processed_data/parts_data_prepared.csv')
