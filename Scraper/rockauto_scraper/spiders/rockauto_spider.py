@@ -43,6 +43,9 @@ class RockAutoSpider(CrawlSpider):
         self.checkpoint = CheckpointSystem('/Users/skylerwilson/Desktop/PartsWise/Data/fitment_data/scraping_checkpoint.json')
         self.tbody_pattern = re.compile(r"listingcontainer\[\d+\]")
 
+    def get_make_urls(self):
+        return [f"{self.base_url}{make.lower().replace(' ', '+')}" for make in self.TARGET_MAKES]
+
     def start_requests(self):
         make_urls = self.get_make_urls()
         for make_url in make_urls:
