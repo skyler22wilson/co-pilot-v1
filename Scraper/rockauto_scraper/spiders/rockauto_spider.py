@@ -238,11 +238,11 @@ class RockAutoSpider(CrawlSpider):
 
         # Find all rows in the table
         rows = response.css('tbody[id^="listingcontainer"]')
-        
+
         for row in rows:
             part_number = row.css('span.listing-final-partnumber::text').get()
             description = row.css('span.span-link-underline-remover::text').get()
-            
+
             if part_number and description:
                 part_info = {
                     'make': make,
@@ -257,15 +257,15 @@ class RockAutoSpider(CrawlSpider):
                     'part_number': part_number.strip(),
                     'description': description.strip(),
                 }
-                
+
                 # Clean up the data
                 part_info = {k: v.strip() if isinstance(v, str) else v for k, v in part_info.items()}
                 part_info = {k: v if v else None for k, v in part_info.items()}  
-                
+
                 yield part_info
 
         self.logger.info(f"Scraped {len(rows)} parts for subcategory {subcategory}")
-        self.checkpoint.save_checkpoint(make, year)
+        self.checkpoint.save_checkpoint(make, year, model) 
 
         # Check for pagination
         next_page = response.css('a.navpageurlnext::attr(href)').get()
