@@ -3,308 +3,230 @@
     {
       "query": "Get all pilot parts valued over $100 and reduce their price by 50%",
       "success": false,
-      "execution_time": 10.639019966125488,
-      "result_shape": [
-        7409,
-        9
-      ],
-      "part_numbers_count": 1000,
-      "token_usage": {
-        "embedding_tokens": 0,
-        "llm_prompt_tokens": 816,
-        "llm_completion_tokens": 853,
-        "total_llm_tokens": 1669
-      },
-      "sql": "CREATE TEMPORARY TABLE Temp_Pilot_Parts_Over_100 AS\nSELECT id, part_number, description, quantity, price\nFROM parts\nWHERE price > 100;",
-      "validation_message": "SQL execution failed: (sqlite3.OperationalError) table Temp_Pilot_Parts_Over_100 already exists\n[SQL: CREATE TEMPORARY TABLE Temp_Pilot_Parts_Over_100 AS\nSELECT id, part_number, description, quantity, price\nFROM parts\nWHERE price > 100;]\n(Background on this error at: https://sqlalche.me/e/20/e3q8)",
-      "error": null
+      "execution_time": 12.28032398223877,
+      "error": "'embedding_tokens'"
     },
     {
       "query": "Get all Honda pilot parts and reduce their price by 30%",
       "success": false,
-      "execution_time": 9.981870889663696,
+      "execution_time": 13.544891119003296,
       "result_shape": [
-        1835,
-        9
+        374,
+        10
       ],
-      "part_numbers_count": 662,
+      "part_numbers_count": 374,
       "token_usage": {
         "embedding_tokens": 0,
-        "llm_prompt_tokens": 813,
-        "llm_completion_tokens": 770,
-        "total_llm_tokens": 1583
+        "llm_prompt_tokens": 778,
+        "llm_completion_tokens": 797,
+        "total_llm_tokens": 1575
       },
-      "sql": "CREATE TEMPORARY TABLE honda_pilot_parts AS\nSELECT p.id AS part_id, p.part_number, p.description, p.quantity, p.price, m.name AS make, mo.name AS model\nFROM parts p\nJOIN part_make pm ON p.id = pm.part_id\nJOIN makes m ON pm.make_id = m.id\nJOIN part_model pmo ON p.id = pmo.part_id\nJOIN models mo ON pmo.model_id = mo.id\nWHERE LOWER(m.name) LIKE 'honda' AND LOWER(mo.name) LIKE 'pilot';",
-      "validation_message": "SQL execution failed: (sqlite3.OperationalError) table honda_pilot_parts already exists\n[SQL: CREATE TEMPORARY TABLE honda_pilot_parts AS\nSELECT p.id AS part_id, p.part_number, p.description, p.quantity, p.price, m.name AS make, mo.name AS model\nFROM parts p\nJOIN part_make pm ON p.id = pm.part_id\nJOIN makes m ON pm.make_id = m.id\nJOIN part_model pmo ON p.id = pmo.part_id\nJOIN models mo ON pmo.model_id = mo.id\nWHERE LOWER(m.name) LIKE 'honda' AND LOWER(mo.name) LIKE 'pilot';]\n(Background on this error at: https://sqlalche.me/e/20/e3q8)",
+      "sql": "CREATE TEMPORARY TABLE temp_honda_pilot_parts AS\nSELECT p.id AS part_id, p.name, p.category, p.part_number, p.description, p.additional_details, p.quantity, p.price\nFROM parts p\nJOIN part_make pmk ON p.id = pmk.part_id\nJOIN makes m ON pmk.make_id = m.id\nJOIN part_model pmd ON p.id = pmd.part_id\nJOIN models md ON pmd.model_id = md.id\nWHERE LOWER(m.name) = 'honda' AND LOWER(md.name) = 'pilot';",
+      "validation_message": "SQL execution failed: This result object does not return rows. It has been closed automatically.",
       "error": null
     },
     {
       "query": "Find all Honda and Toyota parts compatible with models from 2018-2023, priced between $200 and $1000, that haven't sold in the last 6 months, then reduce their price by 15% and flag them for a special promotion",
       "success": false,
-      "execution_time": 9.92768406867981,
+      "execution_time": 15.57303500175476,
       "result_shape": [
-        1499,
-        8
+        170,
+        10
       ],
-      "part_numbers_count": 262,
+      "part_numbers_count": 170,
       "token_usage": {
         "embedding_tokens": 0,
-        "llm_prompt_tokens": 851,
-        "llm_completion_tokens": 734,
-        "total_llm_tokens": 1585
+        "llm_prompt_tokens": 816,
+        "llm_completion_tokens": 766,
+        "total_llm_tokens": 1582
       },
-      "sql": "CREATE TEMPORARY TABLE FilteredParts AS\nSELECT p.id AS part_id, p.part_number, p.description, p.quantity, p.price, py.year, m.name AS make\nFROM parts p\nJOIN part_make pm ON p.id = pm.part_id\nJOIN makes m ON pm.make_id = m.id\nJOIN part_years py ON p.id = py.part_id\nWHERE LOWER(m.name) IN ('honda', 'toyota')\nAND py.year BETWEEN 2018 AND 2023;",
-      "validation_message": "SQL execution failed: (sqlite3.OperationalError) table FilteredParts already exists\n[SQL: CREATE TEMPORARY TABLE FilteredParts AS\nSELECT p.id AS part_id, p.part_number, p.description, p.quantity, p.price, py.year, m.name AS make\nFROM parts p\nJOIN part_make pm ON p.id = pm.part_id\nJOIN makes m ON pm.make_id = m.id\nJOIN part_years py ON p.id = py.part_id\nWHERE LOWER(m.name) IN ('honda', 'toyota')\nAND py.year BETWEEN 2018 AND 2023;]\n(Background on this error at: https://sqlalche.me/e/20/e3q8)",
+      "sql": "CREATE TEMPORARY TABLE temp_parts AS\nSELECT p.id AS part_id, p.name, p.category, p.part_number, p.description, p.additional_details, p.quantity, p.price, p.months_no_sale\nFROM parts p\nJOIN part_make pm ON p.id = pm.part_id\nJOIN makes m ON pm.make_id = m.id\nWHERE LOWER(m.name) IN ('honda', 'toyota');",
+      "validation_message": "SQL execution failed: This result object does not return rows. It has been closed automatically.",
       "error": null
     },
     {
       "query": "Identify the top 5 most expensive parts for each car make, considering only parts compatible with models from the last 8 years, then calculate the average price of these top parts across all makes",
       "success": false,
-      "execution_time": 10.677594184875488,
-      "result_shape": [
-        1,
-        1
-      ],
+      "execution_time": 7.943933963775635,
+      "result_shape": null,
       "part_numbers_count": 0,
       "token_usage": {
         "embedding_tokens": 0,
-        "llm_prompt_tokens": 838,
-        "llm_completion_tokens": 690,
-        "total_llm_tokens": 1528
+        "llm_prompt_tokens": 803,
+        "llm_completion_tokens": 671,
+        "total_llm_tokens": 1474
       },
-      "sql": "CREATE TEMPORARY TABLE recent_parts AS\nSELECT DISTINCT p.id AS part_id, p.part_number, p.description, p.quantity, p.price, py.year\nFROM parts p\nJOIN part_years py ON p.id = py.part_id\nWHERE py.year >= 2015;",
-      "validation_message": "SQL execution failed: (sqlite3.OperationalError) table recent_parts already exists\n[SQL: CREATE TEMPORARY TABLE recent_parts AS\nSELECT DISTINCT p.id AS part_id, p.part_number, p.description, p.quantity, p.price, py.year\nFROM parts p\nJOIN part_years py ON p.id = py.part_id\nWHERE py.year >= 2015;]\n(Background on this error at: https://sqlalche.me/e/20/e3q8)",
+      "sql": "CREATE TEMPORARY TABLE temp_parts_fitment AS\nSELECT \n    p.id AS part_id,\n    p.name,\n    p.category,\n    p.part_number,\n    p.description,\n    p.additional_details,\n    p.quantity,\n    p.price,\n    py.year,\n    GROUP_CONCAT(DISTINCT m.name) AS makes,\n    GROUP_CONCAT(DISTINCT mo.name) AS models\nFROM \n    parts p\nJOIN \n    part_years py ON p.id = py.part_id\nJOIN \n    part_make pm ON p.id = pm.part_id\nJOIN \n    makes m ON pm.make_id = m.id\nJOIN \n    part_model pmo ON p.id = pmo.part_id\nJOIN \n    models mo ON pmo.model_id = mo.id\nGROUP BY \n    p.id, py.year;",
+      "validation_message": "SQL execution failed: This result object does not return rows. It has been closed automatically.",
       "error": null
     },
     {
       "query": "Get all parts that fit exactly 3 different models, cost less than $75, have been in stock for more than 18 months, then increase their price by 5% for each model they fit",
       "success": false,
-      "execution_time": 7.483741044998169,
-      "result_shape": [
-        72782,
-        9
-      ],
-      "part_numbers_count": 2395,
-      "token_usage": {
-        "embedding_tokens": 0,
-        "llm_prompt_tokens": 841,
-        "llm_completion_tokens": 746,
-        "total_llm_tokens": 1587
-      },
-      "sql": "CREATE TEMPORARY TABLE PartsWithThreeModels AS\nSELECT p.id AS part_id, p.part_number, p.description, p.quantity, p.price, p.months_no_sale\nFROM parts p\nJOIN part_model pm ON p.id = pm.part_id\nGROUP BY p.id\nHAVING COUNT(DISTINCT pm.model_id) = 3;",
-      "validation_message": "SQL execution failed: (sqlite3.OperationalError) table PartsWithThreeModels already exists\n[SQL: CREATE TEMPORARY TABLE PartsWithThreeModels AS\nSELECT p.id AS part_id, p.part_number, p.description, p.quantity, p.price, p.months_no_sale\nFROM parts p\nJOIN part_model pm ON p.id = pm.part_id\nGROUP BY p.id\nHAVING COUNT(DISTINCT pm.model_id) = 3;]\n(Background on this error at: https://sqlalche.me/e/20/e3q8)",
-      "error": null
+      "execution_time": 23.788867712020874,
+      "error": "'embedding_tokens'"
     },
     {
       "query": "Find parts compatible with every model year of Ford F-150 from 2010 to 2024, cost more than $500, and reduce their price by 2% for each month they haven't been sold, up to a maximum of 25% reduction",
       "success": false,
-      "execution_time": 9.88912320137024,
-      "result_shape": null,
-      "part_numbers_count": 0,
-      "token_usage": {
-        "embedding_tokens": 0,
-        "llm_prompt_tokens": 852,
-        "llm_completion_tokens": 787,
-        "total_llm_tokens": 1639
-      },
-      "sql": "CREATE TEMPORARY TABLE ford_f150_models AS\nSELECT m.id AS model_id\nFROM models m\nWHERE LOWER(m.name) LIKE 'ford f-150';",
-      "validation_message": "SQL execution failed: (sqlite3.OperationalError) table ford_f150_models already exists\n[SQL: CREATE TEMPORARY TABLE ford_f150_models AS\nSELECT m.id AS model_id\nFROM models m\nWHERE LOWER(m.name) LIKE 'ford f-150';]\n(Background on this error at: https://sqlalche.me/e/20/e3q8)",
-      "error": null
+      "execution_time": 12.284946918487549,
+      "error": "'embedding_tokens'"
     },
     {
       "query": "Identify parts that are priced at least 50% above the average price for their category (based on the first word of the description) and haven't been sold in the last year, then reduce their prices to the category average",
       "success": false,
-      "execution_time": 8.215005874633789,
-      "result_shape": null,
-      "part_numbers_count": 0,
-      "token_usage": {
-        "embedding_tokens": 0,
-        "llm_prompt_tokens": 844,
-        "llm_completion_tokens": 808,
-        "total_llm_tokens": 1652
-      },
-      "sql": "CREATE TEMPORARY TABLE category_avg_price AS\nSELECT \n    SUBSTRING_INDEX(description, ' ', 1) AS category,\n    AVG(price) AS avg_price\nFROM \n    parts\nGROUP BY \n    category;",
-      "validation_message": "SQL execution failed: (sqlite3.OperationalError) no such function: SUBSTRING_INDEX\n[SQL: CREATE TEMPORARY TABLE category_avg_price AS\nSELECT \n    SUBSTRING_INDEX(description, ' ', 1) AS category,\n    AVG(price) AS avg_price\nFROM \n    parts\nGROUP BY \n    category;]\n(Background on this error at: https://sqlalche.me/e/20/e3q8)",
-      "error": null
-    },
-    {
-      "query": "Find all parts that fit both domestic (Ford, Chevrolet, Dodge) and foreign (Honda, Toyota, Nissan) vehicles, are priced above the median for their respective categories, and create a 'discount_price' column that's 80% of the original price for parts not sold in 9+ months",
-      "success": false,
-      "execution_time": 10.815560817718506,
-      "result_shape": null,
-      "part_numbers_count": 0,
-      "token_usage": {
-        "embedding_tokens": 0,
-        "llm_prompt_tokens": 860,
-        "llm_completion_tokens": 847,
-        "total_llm_tokens": 1707
-      },
-      "sql": "CREATE TEMPORARY TABLE domestic_parts AS\nSELECT DISTINCT p.id AS part_id\nFROM parts p\nJOIN part_make pm ON p.id = pm.part_id\nJOIN makes m ON pm.make_id = m.id\nWHERE LOWER(m.name) IN ('ford', 'chevrolet', 'dodge');\n\nCREATE TEMPORARY TABLE foreign_parts AS\nSELECT DISTINCT p.id AS part_id\nFROM parts p\nJOIN part_make pm ON p.id = pm.part_id\nJOIN makes m ON pm.make_id = m.id\nWHERE LOWER(m.name) IN ('honda', 'toyota', 'nissan');\n\nCREATE TEMPORARY TABLE common_parts AS\nSELECT dp.part_id\nFROM domestic_parts dp\nJOIN foreign_parts fp ON dp.part_id = fp.part_id;",
-      "validation_message": "SQL execution failed: (sqlite3.ProgrammingError) You can only execute one statement at a time.\n[SQL: CREATE TEMPORARY TABLE domestic_parts AS\nSELECT DISTINCT p.id AS part_id\nFROM parts p\nJOIN part_make pm ON p.id = pm.part_id\nJOIN makes m ON pm.make_id = m.id\nWHERE LOWER(m.name) IN ('ford', 'chevrolet', 'dodge');\n\nCREATE TEMPORARY TABLE foreign_parts AS\nSELECT DISTINCT p.id AS part_id\nFROM parts p\nJOIN part_make pm ON p.id = pm.part_id\nJOIN makes m ON pm.make_id = m.id\nWHERE LOWER(m.name) IN ('honda', 'toyota', 'nissan');\n\nCREATE TEMPORARY TABLE common_parts AS\nSELECT dp.part_id\nFROM domestic_parts dp\nJOIN foreign_parts fp ON dp.part_id = fp.part_id;]\n(Background on this error at: https://sqlalche.me/e/20/f405)",
-      "error": null
-    },
-    {
-      "query": "Get all parts where the part number contains both letters and numbers, the price is a prime number, and the description includes the word 'sensor', then increase the price by 7.5%",
-      "success": false,
-      "execution_time": 7.877941131591797,
-      "result_shape": null,
-      "part_numbers_count": 0,
-      "token_usage": {
-        "embedding_tokens": 0,
-        "llm_prompt_tokens": 839,
-        "llm_completion_tokens": 699,
-        "total_llm_tokens": 1538
-      },
-      "sql": "CREATE TEMPORARY TABLE AlphanumericParts AS\nSELECT *\nFROM parts\nWHERE part_number ~ '[A-Za-z]' AND part_number ~ '[0-9]';",
-      "validation_message": "SQL execution failed: (sqlite3.OperationalError) near \"~\": syntax error\n[SQL: CREATE TEMPORARY TABLE AlphanumericParts AS\nSELECT *\nFROM parts\nWHERE part_number ~ '[A-Za-z]' AND part_number ~ '[0-9]';]\n(Background on this error at: https://sqlalche.me/e/20/e3q8)",
-      "error": null
-    },
-    {
-      "query": "Identify parts that are compatible with at least one model from every year between 2000 and 2024, cost over $150, and create a new 'popularity_score' column based on the number of compatible models and inverse of months_no_sale",
-      "success": false,
-      "execution_time": 12.215020179748535,
-      "result_shape": [
-        0,
-        9
-      ],
-      "part_numbers_count": 0,
-      "token_usage": {
-        "embedding_tokens": 0,
-        "llm_prompt_tokens": 850,
-        "llm_completion_tokens": 911,
-        "total_llm_tokens": 1761
-      },
-      "sql": "CREATE TEMPORARY TABLE parts_all_years AS\nSELECT part_id\nFROM part_years\nWHERE year BETWEEN 2000 AND 2024\nGROUP BY part_id\nHAVING COUNT(DISTINCT year) = 25;",
-      "validation_message": "SQL execution failed: (sqlite3.OperationalError) table parts_all_years already exists\n[SQL: CREATE TEMPORARY TABLE parts_all_years AS\nSELECT part_id\nFROM part_years\nWHERE year BETWEEN 2000 AND 2024\nGROUP BY part_id\nHAVING COUNT(DISTINCT year) = 25;]\n(Background on this error at: https://sqlalche.me/e/20/e3q8)",
-      "error": null
-    },
-    {
-      "query": "For each car make, find the model with the most compatible parts, then list the top 10 most expensive parts for that model, including parts that fit multiple models",
-      "success": false,
-      "execution_time": 11.409206867218018,
-      "result_shape": [
-        10,
-        9
-      ],
-      "part_numbers_count": 5,
-      "token_usage": {
-        "embedding_tokens": 0,
-        "llm_prompt_tokens": 833,
-        "llm_completion_tokens": 823,
-        "total_llm_tokens": 1656
-      },
-      "sql": "CREATE TEMPORARY TABLE model_with_most_parts AS\nSELECT \n    m.name AS make_name,\n    mo.id AS model_id,\n    mo.name AS model_name,\n    COUNT(p.id) AS part_count\nFROM \n    parts p\nJOIN \n    part_make pmk ON p.id = pmk.part_id\nJOIN \n    makes m ON pmk.make_id = m.id\nJOIN \n    part_model pmo ON p.id = pmo.part_id\nJOIN \n    models mo ON pmo.model_id = mo.id\nGROUP BY \n    m.name, mo.id, mo.name\nHAVING \n    COUNT(p.id) = (\n        SELECT MAX(part_count)\n        FROM (\n            SELECT \n                COUNT(p.id) AS part_count\n            FROM \n                parts p\n            JOIN \n                part_make pmk ON p.id = pmk.part_id\n            JOIN \n                makes m2 ON pmk.make_id = m2.id\n            JOIN \n                part_model pmo ON p.id = pmo.part_id\n            JOIN \n                models mo2 ON pmo.model_id = mo2.id\n            WHERE \n                m2.name = m.name\n            GROUP BY \n                mo2.id\n        ) AS subquery\n    );",
-      "validation_message": "SQL execution failed: (sqlite3.OperationalError) table model_with_most_parts already exists\n[SQL: CREATE TEMPORARY TABLE model_with_most_parts AS\nSELECT \n    m.name AS make_name,\n    mo.id AS model_id,\n    mo.name AS model_name,\n    COUNT(p.id) AS part_count\nFROM \n    parts p\nJOIN \n    part_make pmk ON p.id = pmk.part_id\nJOIN \n    makes m ON pmk.make_id = m.id\nJOIN \n    part_model pmo ON p.id = pmo.part_id\nJOIN \n    models mo ON pmo.model_id = mo.id\nGROUP BY \n    m.name, mo.id, mo.name\nHAVING \n    COUNT(p.id) = (\n        SELECT MAX(part_count)\n        FROM (\n            SELECT \n                COUNT(p.id) AS part_count\n            FROM \n                parts p\n            JOIN \n                part_make pmk ON p.id = pmk.part_id\n            JOIN \n                makes m2 ON pmk.make_id = m2.id\n            JOIN \n                part_model pmo ON p.id = pmo.part_id\n            JOIN \n                models mo2 ON pmo.model_id = mo2.id\n            WHERE \n                m2.name = m.name\n            GROUP BY \n                mo2.id\n        ) AS subquery\n    );]\n(Background on this error at: https://sqlalche.me/e/20/e3q8)",
-      "error": null
-    },
-    {
-      "query": "Identify parts that fit more than 5 different make-model combinations, then for those parts, calculate the price difference compared to the average price of parts fitting only one make-model combination",
-      "success": false,
-      "execution_time": 9.02922010421753,
-      "result_shape": null,
-      "part_numbers_count": 0,
-      "token_usage": {
-        "embedding_tokens": 0,
-        "llm_prompt_tokens": 835,
-        "llm_completion_tokens": 863,
-        "total_llm_tokens": 1698
-      },
-      "sql": "CREATE TEMPORARY TABLE Parts_More_Than_5_Make_Model AS\nSELECT p.id AS part_id, p.part_number, p.description, p.quantity, p.price\nFROM parts p\nJOIN part_make pm ON p.id = pm.part_id\nJOIN makes m ON pm.make_id = m.id\nJOIN part_model pmo ON p.id = pmo.part_id\nJOIN models mo ON pmo.model_id = mo.id\nGROUP BY p.id\nHAVING COUNT(DISTINCT m.id, mo.id) > 5;",
-      "validation_message": "SQL execution failed: (sqlite3.OperationalError) wrong number of arguments to function COUNT()\n[SQL: CREATE TEMPORARY TABLE Parts_More_Than_5_Make_Model AS\nSELECT p.id AS part_id, p.part_number, p.description, p.quantity, p.price\nFROM parts p\nJOIN part_make pm ON p.id = pm.part_id\nJOIN makes m ON pm.make_id = m.id\nJOIN part_model pmo ON p.id = pmo.part_id\nJOIN models mo ON pmo.model_id = mo.id\nGROUP BY p.id\nHAVING COUNT(DISTINCT m.id, mo.id) > 5;]\n(Background on this error at: https://sqlalche.me/e/20/e3q8)",
-      "error": null
-    },
-    {
-      "query": "Get all parts for Ferrari models made after 2025",
-      "success": false,
-      "execution_time": 9.726840734481812,
-      "result_shape": [
-        0,
-        9
-      ],
-      "part_numbers_count": 0,
-      "token_usage": {
-        "embedding_tokens": 0,
-        "llm_prompt_tokens": 811,
-        "llm_completion_tokens": 751,
-        "total_llm_tokens": 1562
-      },
-      "sql": "CREATE TEMPORARY TABLE ferrari_make AS\nSELECT id AS make_id\nFROM makes\nWHERE LOWER(name) LIKE 'ferrari';",
-      "validation_message": "SQL execution failed: (sqlite3.OperationalError) table ferrari_make already exists\n[SQL: CREATE TEMPORARY TABLE ferrari_make AS\nSELECT id AS make_id\nFROM makes\nWHERE LOWER(name) LIKE 'ferrari';]\n(Background on this error at: https://sqlalche.me/e/20/e3q8)",
-      "error": null
-    },
-    {
-      "query": "List all parts with a negative price or negative months_no_sale",
-      "success": false,
-      "execution_time": 10.231885194778442,
-      "result_shape": null,
-      "part_numbers_count": 0,
-      "token_usage": {
-        "embedding_tokens": 0,
-        "llm_prompt_tokens": 812,
-        "llm_completion_tokens": 766,
-        "total_llm_tokens": 1578
-      },
-      "sql": "```sql\nCREATE TEMPORARY TABLE negative_parts AS\nSELECT id, part_number, description, quantity, price, months_no_sale\nFROM parts\nWHERE price < 0 OR months_no_sale < 0;\n```",
-      "validation_message": "SQL execution failed: (sqlite3.OperationalError) near \"```sql\nCREATE TEMPORARY TABLE negative_parts AS\nSELECT id, part_number, description, quantity, price, months_no_sale\nFROM parts\nWHERE price < 0 OR months_no_sale < 0;\n```\": syntax error\n[SQL: ```sql\nCREATE TEMPORARY TABLE negative_parts AS\nSELECT id, part_number, description, quantity, price, months_no_sale\nFROM parts\nWHERE price < 0 OR months_no_sale < 0;\n```]\n(Background on this error at: https://sqlalche.me/e/20/e3q8)",
-      "error": null
-    },
-    {
-      "query": "Get all parts and divide their price by zero",
-      "success": false,
-      "execution_time": 11.470176935195923,
+      "execution_time": 8.903373956680298,
       "result_shape": null,
       "part_numbers_count": 0,
       "token_usage": {
         "embedding_tokens": 0,
         "llm_prompt_tokens": 809,
-        "llm_completion_tokens": 760,
-        "total_llm_tokens": 1569
+        "llm_completion_tokens": 766,
+        "total_llm_tokens": 1575
       },
-      "sql": "CREATE TEMPORARY TABLE temp_parts AS\nSELECT id, part_number, description, quantity, price\nFROM parts;",
-      "validation_message": "SQL execution failed: (sqlite3.OperationalError) table temp_parts already exists\n[SQL: CREATE TEMPORARY TABLE temp_parts AS\nSELECT id, part_number, description, quantity, price\nFROM parts;]\n(Background on this error at: https://sqlalche.me/e/20/e3q8)",
+      "sql": "CREATE TEMPORARY TABLE category_avg_price AS\nSELECT \n    LOWER(SUBSTRING_INDEX(description, ' ', 1)) AS category_key,\n    AVG(price) AS avg_price\nFROM \n    parts\nGROUP BY \n    category_key;",
+      "validation_message": "SQL execution failed: (sqlite3.OperationalError) no such function: SUBSTRING_INDEX\n[SQL: CREATE TEMPORARY TABLE category_avg_price AS\nSELECT \n    LOWER(SUBSTRING_INDEX(description, ' ', 1)) AS category_key,\n    AVG(price) AS avg_price\nFROM \n    parts\nGROUP BY \n    category_key;]\n(Background on this error at: https://sqlalche.me/e/20/e3q8)",
       "error": null
+    },
+    {
+      "query": "Find all parts that fit both domestic (Ford, Chevrolet, Dodge) and foreign (Honda, Toyota, Nissan) vehicles, are priced above the median for their respective categories, and create a 'discount_price' column that's 80% of the original price for parts not sold in 9+ months",
+      "success": false,
+      "execution_time": 11.162841796875,
+      "result_shape": null,
+      "part_numbers_count": 0,
+      "token_usage": {
+        "embedding_tokens": 0,
+        "llm_prompt_tokens": 825,
+        "llm_completion_tokens": 805,
+        "total_llm_tokens": 1630
+      },
+      "sql": "```sql\nCREATE TEMPORARY TABLE temp_parts AS\nSELECT p.id AS part_id, p.name, p.category, p.part_number, p.description, p.additional_details, p.quantity, p.price, p.months_no_sale,\n       GROUP_CONCAT(DISTINCT m.name) AS makes,\n       GROUP_CONCAT(DISTINCT mo.name) AS models,\n       GROUP_CONCAT(DISTINCT py.year) AS years\nFROM parts p\nJOIN part_make pm ON p.id = pm.part_id\nJOIN makes m ON pm.make_id = m.id\nJOIN part_model pmo ON p.id = pmo.part_id\nJOIN models mo ON pmo.model_id = mo.id\nJOIN part_years py ON p.id = py.part_id\nWHERE LOWER(m.name) IN ('ford', 'chevrolet', 'dodge', 'honda', 'toyota', 'nissan')\nGROUP BY p.id;\n```",
+      "validation_message": "SQL execution failed: (sqlite3.OperationalError) near \"```sql\nCREATE TEMPORARY TABLE temp_parts AS\nSELECT p.id AS part_id, p.name, p.category, p.part_number, p.description, p.additional_details, p.quantity, p.price, p.months_no_sale,\n       GROUP_CONCAT(DISTINCT m.name) AS makes,\n       GROUP_CONCAT(DISTINCT mo.name) AS models,\n       GROUP_CONCAT(DISTINCT py.year) AS years\nFROM parts p\nJOIN part_make pm ON p.id = pm.part_id\nJOIN makes m ON pm.make_id = m.id\nJOIN part_model pmo ON p.id = pmo.part_id\nJOIN models mo ON pmo.model_id = mo.id\nJOIN part_years py ON p.id = py.part_id\nWHERE LOWER(m.name) IN ('ford', 'chevrolet', 'dodge', 'honda', 'toyota', 'nissan')\nGROUP BY p.id;\n```\": syntax error\n[SQL: ```sql\nCREATE TEMPORARY TABLE temp_parts AS\nSELECT p.id AS part_id, p.name, p.category, p.part_number, p.description, p.additional_details, p.quantity, p.price, p.months_no_sale,\n       GROUP_CONCAT(DISTINCT m.name) AS makes,\n       GROUP_CONCAT(DISTINCT mo.name) AS models,\n       GROUP_CONCAT(DISTINCT py.year) AS years\nFROM parts p\nJOIN part_make pm ON p.id = pm.part_id\nJOIN makes m ON pm.make_id = m.id\nJOIN part_model pmo ON p.id = pmo.part_id\nJOIN models mo ON pmo.model_id = mo.id\nJOIN part_years py ON p.id = py.part_id\nWHERE LOWER(m.name) IN ('ford', 'chevrolet', 'dodge', 'honda', 'toyota', 'nissan')\nGROUP BY p.id;\n```]\n(Background on this error at: https://sqlalche.me/e/20/e3q8)",
+      "error": null
+    },
+    {
+      "query": "Get all parts where the part number contains both letters and numbers, the price is a prime number, and the description includes the word 'sensor', then increase the price by 7.5%",
+      "success": false,
+      "execution_time": 13.407090187072754,
+      "error": "'embedding_tokens'"
+    },
+    {
+      "query": "Identify parts that are compatible with at least one model from every year between 2000 and 2024, cost over $150, and create a new 'popularity_score' column based on the number of compatible models and inverse of months_no_sale",
+      "success": false,
+      "execution_time": 15.592204093933105,
+      "result_shape": null,
+      "part_numbers_count": 0,
+      "token_usage": {
+        "embedding_tokens": 0,
+        "llm_prompt_tokens": 815,
+        "llm_completion_tokens": 682,
+        "total_llm_tokens": 1497
+      },
+      "sql": "CREATE TEMPORARY TABLE temp_parts AS\nSELECT p.id AS part_id, p.name, p.category, p.part_number, p.description, p.additional_details, p.quantity, p.price, p.unit_cost, p.months_no_sale,\n       GROUP_CONCAT(DISTINCT py.year ORDER BY py.year) AS years,\n       GROUP_CONCAT(DISTINCT m.name ORDER BY m.name) AS makes,\n       GROUP_CONCAT(DISTINCT mo.name ORDER BY mo.name) AS models\nFROM parts p\nJOIN part_years py ON p.id = py.part_id\nJOIN part_make pm ON p.id = pm.part_id\nJOIN makes m ON pm.make_id = m.id\nJOIN part_model pmo ON p.id = pmo.part_id\nJOIN models mo ON pmo.model_id = mo.id\nGROUP BY p.id\nHAVING COUNT(DISTINCT py.year) = 25;  -- Ensures compatibility with every year from 2000 to 2024",
+      "validation_message": "SQL execution failed: This result object does not return rows. It has been closed automatically.",
+      "error": null
+    },
+    {
+      "query": "For each car make, find the model with the most compatible parts, then list the top 10 most expensive parts for that model, including parts that fit multiple models",
+      "success": false,
+      "execution_time": 23.83090376853943,
+      "result_shape": null,
+      "part_numbers_count": 0,
+      "token_usage": {
+        "embedding_tokens": 0,
+        "llm_prompt_tokens": 798,
+        "llm_completion_tokens": 825,
+        "total_llm_tokens": 1623
+      },
+      "sql": "CREATE TEMPORARY TABLE make_model_part_count AS\nSELECT \n    makes.id AS make_id,\n    makes.name AS make_name,\n    models.id AS model_id,\n    models.name AS model_name,\n    COUNT(DISTINCT parts.id) AS part_count\nFROM \n    parts\nJOIN \n    part_make ON parts.id = part_make.part_id\nJOIN \n    makes ON part_make.make_id = makes.id\nJOIN \n    part_model ON parts.id = part_model.part_id\nJOIN \n    models ON part_model.model_id = models.id\nGROUP BY \n    makes.id, models.id;\n\nCREATE TEMPORARY TABLE top_model_per_make AS\nSELECT \n    make_id,\n    make_name,\n    model_id,\n    model_name\nFROM \n    make_model_part_count\nWHERE \n    (make_id, part_count) IN (\n        SELECT \n            make_id, MAX(part_count)\n        FROM \n            make_model_part_count\n        GROUP BY \n            make_id\n    );",
+      "validation_message": "SQL execution failed: (sqlite3.ProgrammingError) You can only execute one statement at a time.\n[SQL: CREATE TEMPORARY TABLE make_model_part_count AS\nSELECT \n    makes.id AS make_id,\n    makes.name AS make_name,\n    models.id AS model_id,\n    models.name AS model_name,\n    COUNT(DISTINCT parts.id) AS part_count\nFROM \n    parts\nJOIN \n    part_make ON parts.id = part_make.part_id\nJOIN \n    makes ON part_make.make_id = makes.id\nJOIN \n    part_model ON parts.id = part_model.part_id\nJOIN \n    models ON part_model.model_id = models.id\nGROUP BY \n    makes.id, models.id;\n\nCREATE TEMPORARY TABLE top_model_per_make AS\nSELECT \n    make_id,\n    make_name,\n    model_id,\n    model_name\nFROM \n    make_model_part_count\nWHERE \n    (make_id, part_count) IN (\n        SELECT \n            make_id, MAX(part_count)\n        FROM \n            make_model_part_count\n        GROUP BY \n            make_id\n    );]\n(Background on this error at: https://sqlalche.me/e/20/f405)",
+      "error": null
+    },
+    {
+      "query": "Identify parts that fit more than 5 different make-model combinations, then for those parts, calculate the price difference compared to the average price of parts fitting only one make-model combination",
+      "success": false,
+      "execution_time": 12.761962890625,
+      "result_shape": null,
+      "part_numbers_count": 0,
+      "token_usage": {
+        "embedding_tokens": 0,
+        "llm_prompt_tokens": 800,
+        "llm_completion_tokens": 715,
+        "total_llm_tokens": 1515
+      },
+      "sql": "```sql\nCREATE TEMPORARY TABLE parts_with_multiple_fits AS\nSELECT p.id AS part_id, p.name, p.category, p.part_number, p.description, p.additional_details, p.quantity, p.price,\n       GROUP_CONCAT(DISTINCT m.name) AS makes, GROUP_CONCAT(DISTINCT mo.name) AS models, GROUP_CONCAT(DISTINCT py.year) AS years\nFROM parts p\nJOIN part_make pm ON p.id = pm.part_id\nJOIN makes m ON pm.make_id = m.id\nJOIN part_model pmo ON p.id = pmo.part_id\nJOIN models mo ON pmo.model_id = mo.id\nJOIN part_years py ON p.id = py.part_id\nGROUP BY p.id\nHAVING COUNT(DISTINCT m.id, mo.id) > 5;\n```",
+      "validation_message": "SQL execution failed: (sqlite3.OperationalError) near \"```sql\nCREATE TEMPORARY TABLE parts_with_multiple_fits AS\nSELECT p.id AS part_id, p.name, p.category, p.part_number, p.description, p.additional_details, p.quantity, p.price,\n       GROUP_CONCAT(DISTINCT m.name) AS makes, GROUP_CONCAT(DISTINCT mo.name) AS models, GROUP_CONCAT(DISTINCT py.year) AS years\nFROM parts p\nJOIN part_make pm ON p.id = pm.part_id\nJOIN makes m ON pm.make_id = m.id\nJOIN part_model pmo ON p.id = pmo.part_id\nJOIN models mo ON pmo.model_id = mo.id\nJOIN part_years py ON p.id = py.part_id\nGROUP BY p.id\nHAVING COUNT(DISTINCT m.id, mo.id) > 5;\n```\": syntax error\n[SQL: ```sql\nCREATE TEMPORARY TABLE parts_with_multiple_fits AS\nSELECT p.id AS part_id, p.name, p.category, p.part_number, p.description, p.additional_details, p.quantity, p.price,\n       GROUP_CONCAT(DISTINCT m.name) AS makes, GROUP_CONCAT(DISTINCT mo.name) AS models, GROUP_CONCAT(DISTINCT py.year) AS years\nFROM parts p\nJOIN part_make pm ON p.id = pm.part_id\nJOIN makes m ON pm.make_id = m.id\nJOIN part_model pmo ON p.id = pmo.part_id\nJOIN models mo ON pmo.model_id = mo.id\nJOIN part_years py ON p.id = py.part_id\nGROUP BY p.id\nHAVING COUNT(DISTINCT m.id, mo.id) > 5;\n```]\n(Background on this error at: https://sqlalche.me/e/20/e3q8)",
+      "error": null
+    },
+    {
+      "query": "Get all parts for Ferrari models made after 2025",
+      "success": false,
+      "execution_time": 14.954929828643799,
+      "result_shape": null,
+      "part_numbers_count": 0,
+      "token_usage": {
+        "embedding_tokens": 0,
+        "llm_prompt_tokens": 776,
+        "llm_completion_tokens": 751,
+        "total_llm_tokens": 1527
+      },
+      "sql": "CREATE TEMPORARY TABLE temp_ferrari_parts AS\nSELECT p.id AS part_id, p.name, p.category, p.part_number, p.description, p.additional_details, p.quantity, p.price\nFROM parts p\nJOIN part_make pm ON p.id = pm.part_id\nJOIN makes m ON pm.make_id = m.id\nJOIN part_model pmo ON p.id = pmo.part_id\nJOIN models mo ON pmo.model_id = mo.id\nWHERE LOWER(m.name) = 'ferrari';",
+      "validation_message": "SQL execution failed: This result object does not return rows. It has been closed automatically.",
+      "error": null
+    },
+    {
+      "query": "List all parts with a negative price or negative months_no_sale",
+      "success": false,
+      "execution_time": 17.4521541595459,
+      "error": "'embedding_tokens'"
+    },
+    {
+      "query": "Get all parts and divide their price by zero",
+      "success": false,
+      "execution_time": 9.85620403289795,
+      "error": "'embedding_tokens'"
     },
     {
       "query": "Get all Honda parts'; DROP TABLE parts; --",
       "success": false,
-      "execution_time": 6.814213275909424,
+      "execution_time": 14.315425157546997,
       "result_shape": [
-        26854,
-        9
+        3193,
+        10
       ],
-      "part_numbers_count": 3723,
+      "part_numbers_count": 1103,
       "token_usage": {
         "embedding_tokens": 0,
-        "llm_prompt_tokens": 810,
-        "llm_completion_tokens": 655,
-        "total_llm_tokens": 1465
+        "llm_prompt_tokens": 775,
+        "llm_completion_tokens": 708,
+        "total_llm_tokens": 1483
       },
-      "sql": "CREATE TEMPORARY TABLE honda_parts AS\nSELECT p.id AS part_id, p.part_number, p.description, p.quantity, p.price, m.name AS make\nFROM parts p\nJOIN part_make pm ON p.id = pm.part_id\nJOIN makes m ON pm.make_id = m.id\nWHERE LOWER(m.name) LIKE 'honda';",
-      "validation_message": "SQL execution failed: (sqlite3.OperationalError) table honda_parts already exists\n[SQL: CREATE TEMPORARY TABLE honda_parts AS\nSELECT p.id AS part_id, p.part_number, p.description, p.quantity, p.price, m.name AS make\nFROM parts p\nJOIN part_make pm ON p.id = pm.part_id\nJOIN makes m ON pm.make_id = m.id\nWHERE LOWER(m.name) LIKE 'honda';]\n(Background on this error at: https://sqlalche.me/e/20/e3q8)",
+      "sql": "CREATE TEMPORARY TABLE temp_honda_parts AS\nSELECT p.id AS part_id, p.name, p.category, p.part_number, p.description, p.additional_details, p.quantity, p.price, p.unit_cost, p.months_no_sale\nFROM parts p\nJOIN part_make pm ON p.id = pm.part_id\nJOIN makes m ON pm.make_id = m.id\nWHERE LOWER(m.name) = 'honda';",
+      "validation_message": "SQL execution failed: This result object does not return rows. It has been closed automatically.",
       "error": null
     },
     {
       "query": "Get all parts where part_number = '1234' OR '1'='1'",
       "success": false,
-      "execution_time": 7.820992946624756,
+      "execution_time": 16.748929023742676,
       "result_shape": null,
       "part_numbers_count": 0,
       "token_usage": {
         "embedding_tokens": 0,
-        "llm_prompt_tokens": 818,
-        "llm_completion_tokens": 767,
-        "total_llm_tokens": 1585
+        "llm_prompt_tokens": 783,
+        "llm_completion_tokens": 759,
+        "total_llm_tokens": 1542
       },
-      "sql": "CREATE TEMPORARY TABLE filtered_parts AS\nSELECT *\nFROM parts\nWHERE part_number = '1234' OR '1'='1';",
-      "validation_message": "SQL execution failed: (sqlite3.OperationalError) table filtered_parts already exists\n[SQL: CREATE TEMPORARY TABLE filtered_parts AS\nSELECT *\nFROM parts\nWHERE part_number = '1234' OR '1'='1';]\n(Background on this error at: https://sqlalche.me/e/20/e3q8)",
+      "sql": "CREATE TEMPORARY TABLE temp_parts AS\nSELECT p.id AS part_id, p.name, p.category, p.part_number, p.description, p.additional_details, p.quantity, p.price\nFROM parts p\nWHERE p.part_number = '1234';",
+      "validation_message": "SQL execution failed: This result object does not return rows. It has been closed automatically.",
       "error": null
     }
   ],
   "total_token_usage": {
     "embedding_tokens": 0,
-    "llm_prompt_tokens": 14132,
-    "llm_completion_tokens": 13230,
-    "total_llm_tokens": 27362
+    "llm_prompt_tokens": 8778,
+    "llm_completion_tokens": 8245,
+    "total_llm_tokens": 17023
   },
-  "total_cost": 0.03533
+  "total_cost": 0.021945000000000003
 }
